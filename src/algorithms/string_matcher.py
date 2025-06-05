@@ -1,4 +1,13 @@
-from typing import List
+from typing import List, Dict, Set, Tuple
+from collections import deque
+
+class TrieNode:
+    """Node for Aho-Corasick trie structure"""
+    def __init__(self):
+        self.children = {}
+        self.failure = None
+        self.output = []
+        self.is_end = False
 
 class StringMatcher:
     @staticmethod
@@ -148,6 +157,163 @@ class StringMatcher:
                 shift += max(bad_char_shift, good_suffix_shift, 1)
         
         return matches
+
+    @staticmethod
+    def aho_corasick_search(text: str, patterns: List[str]) -> Dict[str, List[int]]:
+        """
+        AHO-CORASICK: Multi-pattern string matching algorithm
+        
+        Efficiently searches for multiple patterns simultaneously in O(n + m + z) time
+        where n = text length, m = total pattern lengths, z = number of matches
+        
+        Args:
+            text: Text to search in
+            patterns: List of patterns to search for
+            
+        Returns:
+            Dictionary mapping each pattern to list of match positions
+        """
+        if not text or not patterns:
+            return {}
+        
+        # Normalize inputs
+        text = text.lower()
+        patterns = [p.lower().strip() for p in patterns if p.strip()]
+        
+        if not patterns:
+            return {}
+        
+        # Build Aho-Corasick automaton
+        root = StringMatcher._build_aho_corasick_automaton(patterns)
+        
+        # Search for all patterns simultaneously
+        matches = {pattern: [] for pattern in patterns}
+        current_node = root
+        
+        for i, char in enumerate(text):
+            # Find the next state (follow failure links if needed)
+            while current_node and char not in current_node.children:
+                current_node = current_node.failure
+            
+            if current_node is None:
+                current_node = root
+                continue
+            
+            current_node = current_node.children[char]
+            
+            # Check for pattern matches at current position
+            temp_node = current_node
+            while temp_node:
+                for pattern in temp_node.output:
+                    match_start = i - len(pattern) + 1
+                    matches[pattern].append(match_start)
+                temp_node = temp_node.failure
+        
+        return matches
+    
+    @staticmethod
+    def _build_aho_corasick_automaton(patterns: List[str]) -> TrieNode:
+        """BUILD: Construct Aho-Corasick automaton (trie + failure function)"""
+        root = TrieNode()
+        root.failure = root
+        
+        # Phase 1: Build trie from patterns
+        for pattern in patterns:
+            current = root
+            for char in pattern:
+                if char not in current.children:
+                    current.children[char] = TrieNode()
+                current = current.children[char]
+            current.is_end = True
+            current.output.append(pattern)
+        
+        # Phase 2: Build failure function using BFS
+        queue = deque()
+        
+        # Initialize failure links for first level (direct children of root)
+        for child in root.children.values():
+            child.failure = root
+            queue.append(child)
+        
+        # Build failure links for deeper levels
+        while queue:
+            current = queue.popleft()
+            
+            for char, child in current.children.items():
+                queue.append(child)
+                
+                # Find failure link for this child
+                failure_node = current.failure
+                while failure_node != root and char not in failure_node.children:
+                    failure_node = failure_node.failure
+                
+                if char in failure_node.children and failure_node.children[char] != child:
+                    child.failure = failure_node.children[char]
+                else:
+                    child.failure = root
+                
+                # Copy output from failure node (for overlapping patterns)
+                child.output.extend(child.failure.output)
+        
+        return root
+    
+    @staticmethod
+    def aho_corasick_with_stats(text: str, patterns: List[str]) -> Dict:
+        """
+        AHO-CORASICK WITH STATS: Enhanced version with performance metrics
+        
+        Returns detailed statistics about the multi-pattern search
+        """
+        import time
+        
+        if not text or not patterns:
+            return {
+                'matches': {},
+                'total_matches': 0,
+                'patterns_found': 0,
+                'time_taken': 0,
+                'automaton_size': 0
+            }
+        
+        start_time = time.time()
+        
+        # Clean patterns
+        clean_patterns = [p.lower().strip() for p in patterns if p.strip()]
+        
+        # Build automaton and count nodes
+        root = StringMatcher._build_aho_corasick_automaton(clean_patterns)
+        automaton_size = StringMatcher._count_automaton_nodes(root)
+        
+        # Perform search
+        matches = StringMatcher.aho_corasick_search(text, clean_patterns)
+        
+        end_time = time.time()
+        
+        # Calculate statistics
+        total_matches = sum(len(positions) for positions in matches.values())
+        patterns_found = sum(1 for positions in matches.values() if positions)
+        
+        return {
+            'matches': matches,
+            'total_matches': total_matches,
+            'patterns_found': patterns_found,
+            'total_patterns': len(clean_patterns),
+            'time_taken': end_time - start_time,
+            'automaton_size': automaton_size,
+            'text_length': len(text),
+            'match_density': total_matches / len(text) if text else 0
+        }
+    
+    @staticmethod
+    def _count_automaton_nodes(root: TrieNode) -> int:
+        """ COUNT: Count total nodes in Aho-Corasick automaton"""
+        if not root:
+            return 0
+        
+        count = 1
+        for child in root.children.values():
+            count += StringMatcher._count_automaton_nodes(child)
+        return count
     
     @staticmethod
     def levenshtein_distance(s1: str, s2: str) -> int:
@@ -158,17 +324,17 @@ class StringMatcher:
         if len(s2) == 0:
             return len(s1)
         
-        prev_row = list(range(len(s2) + 1))
+        previous_row = list(range(len(s2) + 1))
         for i, c1 in enumerate(s1):
-            curr_row = [i + 1]
+            current_row = [i + 1]
             for j, c2 in enumerate(s2):
-                insertions = prev_row[j + 1] + 1
-                deletions = curr_row[j] + 1
-                substitutions = prev_row[j] + (c1 != c2)
-                curr_row.append(min(insertions, deletions, substitutions))
-            prev_row = curr_row
+                insertions = previous_row[j + 1] + 1
+                deletions = current_row[j] + 1
+                substitutions = previous_row[j] + (c1 != c2)
+                current_row.append(min(insertions, deletions, substitutions))
+            previous_row = current_row
         
-        return prev_row[-1]
+        return previous_row[-1]
     
     @staticmethod
     def calculate_similarity(s1: str, s2: str) -> float:
