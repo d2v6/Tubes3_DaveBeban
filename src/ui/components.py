@@ -1,16 +1,18 @@
 import flet as ft
 
+
 class UIComponents:
     @staticmethod
     def create_header():
-        """Create header section"""
+        """Create header section - CV ATS Title"""
         return ft.Column([
-            ft.Text("CV Matching System", size=28, weight=ft.FontWeight.BOLD),
-            ft.Text("Advanced PDF CV Parser with KMP & Boyer-Moore Algorithms", 
-                   size=14, color=ft.Colors.GREY_600),
+            ft.Text("CV ATS - Applicant Tracking System",
+                    size=28, weight=ft.FontWeight.BOLD),
+            ft.Text("Advanced PDF CV Parser with KMP & Boyer-Moore + Levenshtein Distance",
+                    size=14, color=ft.Colors.GREY_600),
             ft.Divider(),
         ])
-    
+
     @staticmethod
     def create_file_selection_section(pick_files_callback, selected_files_text):
         """Create file selection section"""
@@ -30,26 +32,36 @@ class UIComponents:
             ], alignment=ft.MainAxisAlignment.START),
             ft.Divider(),
         ])
-    
+
     @staticmethod
-    def create_search_configuration(algorithm_radio, keywords_input, similarity_text, similarity_slider, search_callback, clear_callback):
-        """Create search configuration section"""
+    def create_search_configuration(algorithm_radio, keywords_input, top_matches_dropdown, similarity_text, similarity_slider, search_callback, clear_callback):
+        """Create search configuration section with all required components"""
         return ft.Column([
             ft.Text("2. Configure Search", size=18, weight=ft.FontWeight.BOLD),
             ft.Row([
                 ft.Container(
                     content=ft.Column([
-                        ft.Text("Algorithm Selection:", size=14, weight=ft.FontWeight.BOLD),
+                        ft.Text("Algorithm Selection:", size=14,
+                                weight=ft.FontWeight.BOLD),
                         algorithm_radio
                     ]),
                     expand=1
                 ),
                 ft.Container(
                     content=ft.Column([
-                        ft.Text("Keywords:", size=14, weight=ft.FontWeight.BOLD),
+                        ft.Text("Keywords:", size=14,
+                                weight=ft.FontWeight.BOLD),
                         keywords_input
                     ]),
                     expand=2
+                ),
+                ft.Container(
+                    content=ft.Column([
+                        ft.Text("Top Matches:", size=14,
+                                weight=ft.FontWeight.BOLD),
+                        top_matches_dropdown
+                    ]),
+                    expand=1
                 )
             ]),
             ft.Row([
@@ -58,7 +70,7 @@ class UIComponents:
                         similarity_text,
                         similarity_slider
                     ]),
-                    expand=1
+                    expand=2
                 ),
                 ft.Container(
                     content=ft.Column([
@@ -86,40 +98,53 @@ class UIComponents:
             ]),
             ft.Divider(),
         ])
-    
+
+    @staticmethod
+    def create_summary_section(summary_container):
+        """Create summary result section - REQUIRED BY SPEC"""
+        return ft.Column([
+            ft.Text("3. Summary Result Section",
+                    size=18, weight=ft.FontWeight.BOLD),
+            summary_container,
+            ft.Divider(),
+        ])
+
     @staticmethod
     def create_results_section(progress_ring, status_text, results_container):
-        """Create results section"""
+        """Create results section with search results"""
         return ft.Column([
             ft.Row([
-                ft.Text("3. Search Results", size=18, weight=ft.FontWeight.BOLD),
+                ft.Text("4. Search Results", size=18,
+                        weight=ft.FontWeight.BOLD),
                 progress_ring,
                 status_text
             ]),
             results_container,
             ft.Divider(),
         ])
-    
+
     @staticmethod
     def create_content_display_section(full_text_container, highlights_container):
-        """Create content display section"""
+        """Create content display section with CV content and summary"""
         return ft.Row([
             ft.Container(
                 content=ft.Column([
-                    ft.Text("4. Full CV Content", size=16, weight=ft.FontWeight.BOLD),
+                    ft.Text("5. Full CV Content", size=16,
+                            weight=ft.FontWeight.BOLD),
                     full_text_container
                 ]),
                 expand=1
             ),
             ft.Container(
                 content=ft.Column([
-                    ft.Text("5. Search Highlights", size=16, weight=ft.FontWeight.BOLD),
+                    ft.Text("6. CV Summary / Highlights",
+                            size=16, weight=ft.FontWeight.BOLD),
                     highlights_container
                 ]),
                 expand=1
             )
         ])
-    
+
     @staticmethod
     def create_container(width=1200, height=800):
         """Create main container"""
@@ -127,4 +152,35 @@ class UIComponents:
             content=ft.Column([], spacing=15),
             padding=20,
             expand=True
+        )
+        
+    @staticmethod
+    def create_database_section(on_show_db_info):
+        """Create database information section"""
+        return ft.Container(
+            content=ft.Column([
+                ft.Text("📊 Database Search", weight=ft.FontWeight.BOLD, size=16),
+                ft.Text(
+                    "Search keywords in CVs already stored in the database (from seeding process)",
+                    color=ft.colors.GREY_700,
+                    size=12
+                ),
+                ft.Row([
+                    ft.ElevatedButton(
+                        "Show Database Info",
+                        icon=ft.icons.INFO,
+                        on_click=on_show_db_info
+                    ),
+                    ft.Text(
+                        "💡 No need to upload files - search existing CVs!",
+                        color=ft.colors.BLUE_700,
+                        size=12,
+                        italic=True
+                    )
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+            ], spacing=8),
+            bgcolor=ft.colors.BLUE_50,
+            border_radius=10,
+            padding=15,
+            margin=ft.margin.only(bottom=15)
         )
