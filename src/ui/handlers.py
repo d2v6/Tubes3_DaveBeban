@@ -24,17 +24,26 @@ class UIHandlers:
         # UI components
         self.keywords_input = None
         self.algorithm_radio = None
+        self.top_matches_input = None
         self.results_text = None
         self.status_text = None
         self.progress_ring = None
 
     def create_components(self):
-        """Create  UI components"""
-        # Keywords input
+        """Create  UI components"""        # Keywords input
         self.keywords_input = ft.TextField(
             label="Enter keywords (comma-separated)",
             hint_text="e.g., python, javascript, sql",
             width=400
+        )
+
+        # Top matches input
+        self.top_matches_input = ft.TextField(
+            label="Number of top matches",
+            hint_text="Default: 10",
+            value="10",
+            width=150,
+            keyboard_type=ft.KeyboardType.NUMBER
         )
 
         # Algorithm selection
@@ -42,7 +51,6 @@ class UIHandlers:
             content=ft.Row([
                 ft.Radio(value="kmp", label="KMP"),
                 ft.Radio(value="bm", label="Boyer-Moore"),
-                ft.Radio(value="regex", label="Regex")
             ]),
             value="kmp"
         )
@@ -57,10 +65,10 @@ class UIHandlers:
         # Status and progress
         self.status_text = ft.Text("Ready", size=12, color=ft.Colors.GREEN)
         self.progress_ring = ft.ProgressRing(visible=False)
-
         return {
             'keywords_input': self.keywords_input,
             'algorithm_radio': self.algorithm_radio,
+            'top_matches_input': self.top_matches_input,
             'results_text': self.results_text,
             'status_text': self.status_text,
             'progress_ring': self.progress_ring
@@ -107,6 +115,17 @@ class UIHandlers:
             keywords = self.keywords_input.value.strip() if self.keywords_input.value else ""
             algorithm = self.algorithm_radio.value if self.algorithm_radio.value else "kmp"
 
+            try:
+                top_matches_str = self.top_matches_input.value.strip(
+                ) if self.top_matches_input.value else "10"
+                top_matches = int(top_matches_str) if top_matches_str else 10
+                if top_matches <= 0:
+                    top_matches = 10
+            except ValueError:
+                top_matches = 10
+                self.top_matches_input.value = "10"
+                self.page.update()
+
             if not keywords:
                 self.status_text.value = "❌ Please enter keywords"
                 self.status_text.color = ft.Colors.RED
@@ -114,7 +133,7 @@ class UIHandlers:
                 return
 
             self.progress_ring.visible = True
-            self.status_text.value = f"Searching with {algorithm.upper()}..."
+            self.status_text.value = f"Searching with {algorithm.upper()}... (top {top_matches})"
             self.status_text.color = ft.Colors.BLUE
             self.page.update()
 
@@ -130,7 +149,7 @@ class UIHandlers:
             results = self.repo.search_cvs_by_keywords(
                 keywords=keywords,
                 algorithm=algorithm,
-                top_matches=10,
+                top_matches=top_matches,
                 similarity_threshold=0.3
             )
             search_time = time.time() - search_start
@@ -140,6 +159,7 @@ class UIHandlers:
             # Display results
             result_text = f"SEARCH RESULTS for '{keywords}' using {algorithm.upper()}:\n\n"
             result_text += f"Search Time: {search_time:.3f} seconds\n"
+            result_text += f"Top Matches Requested: {top_matches}\n"
             result_text += f"Results Found: {len(results)}\n\n"
 
             if results:
@@ -153,7 +173,15 @@ class UIHandlers:
                     result_text += f"{i}. {profile.full_name}\n"
                     result_text += f"   Role: {app.application_role}\n"
                     result_text += f"   Score: {score:.3f} ({match_type})\n"
-                    result_text += f"   Matched: {', '.join(matched_kw)}\n"
+
+                    # Handle tuple format (keyword, count)
+                    if matched_kw and isinstance(matched_kw[0], tuple):
+                        matches_display = [
+                            f"{kw}({count})" for kw, count in matched_kw]
+                        result_text += f"   Matched: {', '.join(matches_display)}\n"
+                    else:
+                        # Fallback for old format
+                        result_text += f"   Matched: {', '.join(str(kw) for kw in matched_kw)}\n"
             else:
                 result_text += "No matches found.\n"
 
@@ -173,6 +201,7 @@ class UIHandlers:
     def clear_results(self, e=None):
         self.results_text.value = "Results cleared."
         self.keywords_input.value = ""
+        self.top_matches_input.value = "10"
         self.status_text.value = "Ready"
         self.status_text.color = ft.Colors.GREEN
         self.page.update()

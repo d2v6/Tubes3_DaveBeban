@@ -63,9 +63,20 @@ def main(page: ft.Page):
                     # Keywords input
                     components['keywords_input'],
 
-                    # Algorithm selection
-                    ft.Text("Algorithm:", weight=ft.FontWeight.BOLD, size=14),
-                    components['algorithm_radio'],
+                    # Search parameters row
+                    ft.Row([
+                        # Algorithm selection
+                        ft.Column([
+                            ft.Text("Algorithm:", weight=ft.FontWeight.BOLD, size=14),
+                            components['algorithm_radio']
+                        ]),
+                        
+                        # Top matches input
+                        ft.Column([
+                            ft.Text("Top Matches:", weight=ft.FontWeight.BOLD, size=14),
+                            components['top_matches_input']
+                        ])
+                    ], spacing=20),
 
                     # Search buttons
                     ft.Row([
