@@ -106,29 +106,6 @@ def seed_from_data_folder(db: DatabaseConnection, pdf_parser: PDFParser, cv_extr
                 failed_inserts += 1
                 continue
             
-            # Display extracted information
-            print(f"    First Name: {contact_information[0]}")
-            print(f"    Last Name: {contact_information[1]}")
-            print(f"   📱 Phone: {contact_information[2]}")
-            print(f"   🏠 Address: {contact_information[3]}")
-            
-            
-            # Insert applicant profile
-            profile_query = """
-            INSERT INTO ApplicantProfile 
-            (first_name, last_name, phone_number, address, date_of_birth)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            """
-            
-            profile_params = (
-                applicant_profile.first_name,
-                applicant_profile.last_name,
-                applicant_profile.email,
-                applicant_profile.phone_number,
-                applicant_profile.address,
-                applicant_profile.date_of_birth
-            )
-            
             applicant_id = db.execute_insert(profile_query, profile_params)
             
             if applicant_id:
