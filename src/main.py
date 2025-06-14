@@ -1,9 +1,8 @@
 import flet as ft
-from ui.handlers import SimpleUIHandlers
+from ui.handlers import UIHandlers
 
 
 def main(page: ft.Page):
-    """🚀 SIMPLE MAIN: Test your algorithms and database connection"""
 
     # Configure page
     page.title = "CV ATS - Algorithm & Database Test"
@@ -13,7 +12,7 @@ def main(page: ft.Page):
     page.window_height = 700
 
     # Initialize handlers
-    handlers = SimpleUIHandlers(page)
+    handlers = UIHandlers(page)
     components = handlers.create_components()
 
     # Create simple UI
@@ -34,24 +33,24 @@ def main(page: ft.Page):
 
             ft.Container(
                 content=ft.Row([
-            # Database Test Section
-                ft.Container(
-                    content=ft.Column([
-                        ft.Text("Database Connection Test",
-                                size=18, weight=ft.FontWeight.BOLD),
-                        ft.ElevatedButton(
-                            "Test Database Connection",
-                            icon=ft.icons.STORAGE,
-                            on_click=handlers.test_database_connection,
-                            style=ft.ButtonStyle(
-                                bgcolor=ft.Colors.BLUE_600, color=ft.Colors.WHITE)
-                        )
-                    ]),
-                    bgcolor=ft.Colors.BLUE_50,
-                    border_radius=10,
-                    padding=15,
-                    margin=ft.margin.only(bottom=15)
-                ), 
+                    # Database Test Section
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text("Load CVs from Database",
+                                    size=18, weight=ft.FontWeight.BOLD),
+                            ft.ElevatedButton(
+                                "Load CVs",
+                                icon=ft.icons.STORAGE,
+                                on_click=handlers.test_database_connection_and_load,
+                                style=ft.ButtonStyle(
+                                    bgcolor=ft.Colors.BLUE_600, color=ft.Colors.WHITE)
+                            )
+                        ]),
+                        bgcolor=ft.Colors.BLUE_50,
+                        border_radius=10,
+                        padding=15,
+                        margin=ft.margin.only(bottom=15)
+                    ),
                 ])
             ),
 
