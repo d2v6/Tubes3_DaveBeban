@@ -1,23 +1,16 @@
-from typing import List, Optional, Dict, Any
+from pathlib import Path
+from typing import List, Dict, Any, Optional
 from .connection import DatabaseConnection
-
-# Import models
-try:
-    from ..models.database_models import ApplicantProfile, ApplicationDetail, CVSearchResult
-except ImportError:
-    from models.database_models import ApplicantProfile, ApplicationDetail, CVSearchResult
-
-# Import utilities
-try:
-    from ..utils.pdf_parser import PDFParser
-    from ..algorithms.string_matcher import StringMatcher
-except ImportError:
-    from utils.pdf_parser import PDFParser
-    from algorithms.string_matcher import StringMatcher
-
+import sys
 import os
 import time
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Now you can import normally
+from utils.pdf_parser import PDFParser
+from models.database_models import ApplicantProfile, ApplicationDetail, CVSearchResult
+from algorithms.string_matcher import StringMatcher
 
 class CVRepository:
     """🗂️ REPOSITORY: Clean data layer for CV ATS System"""
@@ -62,22 +55,16 @@ class CVRepository:
         """Check connection status"""
         return self.db.is_connected()
 
-    # =============================================================================
-    # 📊 BASIC DATABASE OPERATIONS
-    # =============================================================================
-
     def get_all_cvs(self) -> List[CVSearchResult]:
         """Get all CVs with profile data"""
         try:
             query = """
             SELECT 
                 ap.applicant_id, ap.first_name, ap.last_name, ap.date_of_birth,
-                ap.address, ap.phone_number, ap.email, ap.created_at as profile_created,
-                ad.detail_id, ad.application_role, ad.cv_path, ad.applied_date, ad.status
+                ap.address, ap.phone_number,
+                ad.detail_id, ad.application_role, ad.cv_path
             FROM ApplicantProfile ap
             JOIN ApplicationDetail ad ON ap.applicant_id = ad.applicant_id
-            WHERE ad.status = 'active'
-            ORDER BY ad.applied_date DESC
             """
 
             results = self.db.execute_query(query)
@@ -93,8 +80,6 @@ class CVRepository:
                             date_of_birth=row['date_of_birth'],
                             address=row['address'],
                             phone_number=row['phone_number'],
-                            email=row['email'],
-                            created_at=row['profile_created']
                         )
 
                         application = ApplicationDetail(
@@ -102,13 +87,11 @@ class CVRepository:
                             applicant_id=row['applicant_id'],
                             application_role=row['application_role'],
                             cv_path=row['cv_path'],
-                            applied_date=row['applied_date'],
-                            status=row['status'],
                             applicant_profile=profile
                         )
 
                         # Load CV text from PDF
-                        cv_text = self._load_cv_text(row['cv_path'])
+                        cv_text = self._load_cv_content(row['cv_path'])
 
                         cv_result = CVSearchResult(
                             applicant_profile=profile,
@@ -127,25 +110,56 @@ class CVRepository:
         except Exception as e:
             print(f"❌ Error retrieving CVs: {e}")
             return []
-
-    def _load_cv_text(self, cv_path: str) -> str:
-        """Load CV text from PDF file"""
-        if not cv_path:
-            return ""
-
+        
+    @staticmethod
+    def _get_cv_file_path(cv_path: str) -> str:
+        """
+        Convert database cv_path to actual file system path
+        
+        Args:
+            cv_path: Path stored in database (e.g., "data/CHEF/10889157.pdf")
+        
+        Returns:
+            Absolute file system path
+        """
+        # Remove any leading slashes or backslashes
+        clean_path = cv_path.strip('/\\')
+        
+        # Get the project root directory (parent of src)
+        project_root = Path(__file__).parent.parent.parent  # Go up from src/models/ to project root
+        
+        # Construct the full path
+        full_path = project_root / clean_path
+        
+        return str(full_path)
+    
+    def _load_cv_content(self, cv_path: str) -> Optional[str]:
+        """
+        Load CV content from file system
+        
+        Args:
+            cv_path: Database cv_path (e.g., "data/CHEF/10889157.pdf")
+        
+        Returns:
+            CV text content or None if file not found
+        """
         try:
-            full_path = os.path.join(self.project_root, cv_path)
-
-            if os.path.exists(full_path):
-                cv_text = self.pdf_parser.parse_pdf(full_path)
-                return cv_text if cv_text else ""
-            else:
-                print(f"⚠️ CV file not found: {full_path}")
-                return ""
-
+            # Get the correct file system path
+            file_path = self._get_cv_file_path(cv_path)
+            
+            # Check if file exists
+            if not os.path.exists(file_path):
+                print(f"⚠️ CV file not found: {file_path}")
+                return None
+            
+            # Parse PDF content
+            content = self.pdf_parser.parse_pdf(file_path)
+            
+            return content
+            
         except Exception as e:
-            print(f"⚠️ Error loading CV text: {e}")
-            return ""
+            print(f"❌ Error loading CV {cv_path}: {e}")
+            return None
 
     def get_statistics(self) -> Dict[str, Any]:
         """Get CV statistics"""
@@ -153,7 +167,6 @@ class CVRepository:
             query = """
             SELECT application_role, COUNT(*) as count_per_role
             FROM ApplicationDetail 
-            WHERE status = 'active'
             GROUP BY application_role
             ORDER BY count_per_role DESC
             """
@@ -161,7 +174,7 @@ class CVRepository:
             results = self.db.execute_query(query)
 
             if results:
-                total_query = "SELECT COUNT(*) as total FROM ApplicationDetail WHERE status = 'active'"
+                total_query = "SELECT COUNT(*) as total FROM ApplicationDetail"
                 total_result = self.db.execute_query(total_query)
                 total_cvs = total_result[0]['total'] if total_result else 0
 
@@ -177,14 +190,11 @@ class CVRepository:
             print(f"❌ Error getting statistics: {e}")
             return {'total_cvs': 0, 'total_roles': 0, 'role_breakdown': {}}
 
-    # =============================================================================
-    # 🔍 SEARCH FUNCTIONS USING YOUR ALGORITHMS
-    # =============================================================================
 
     def search_cvs_by_keywords(self, keywords: str, algorithm: str = "kmp", top_matches: int = 10, similarity_threshold: float = 0.3) -> List[CVSearchResult]:
         """🔍 SEARCH: Main search function using your algorithms"""
         try:
-            print(f"🔍 Starting search with keywords: '{keywords}' using {algorithm.upper()}")
+            print(f"Starting search with keywords: '{keywords}' using {algorithm.upper()}")
             
             # Get all CVs
             all_cvs = self.get_all_cvs()
@@ -265,7 +275,7 @@ class CVRepository:
             return []
 
     def _calculate_exact_match_score(self, cv_text: str, keywords: List[str], algorithm: str) -> tuple:
-        """🧮 CALCULATE: Exact match score using your algorithms"""
+        """CALCULATE: Exact match score using your algorithms"""
         try:
             cv_text_lower = cv_text.lower()
             matched_keywords = []
@@ -338,68 +348,12 @@ class CVRepository:
         except Exception as e:
             print(f"⚠️ Error in fuzzy match calculation: {e}")
             return 0.0, []
-
-    # =============================================================================
-    # 📊 APPLICANT MANAGEMENT OPERATIONS
-    # =============================================================================
-    
-    def create_applicant(self, profile: ApplicantProfile) -> Optional[int]:
-        """Create new applicant profile"""
-        try:
-            query = """
-            INSERT INTO ApplicantProfile 
-            (first_name, last_name, email, phone_number, address, date_of_birth)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            """
-            
-            params = (
-                profile.first_name,
-                profile.last_name,
-                profile.email,
-                profile.phone_number,
-                profile.address,
-                profile.date_of_birth
-            )
-            
-            applicant_id = self.db.execute_insert(query, params)
-            
-            if applicant_id:
-                print(f"✅ Created applicant {applicant_id}: {profile.full_name}")
-            
-            return applicant_id
-            
-        except Exception as e:
-            print(f"❌ Error creating applicant: {e}")
-            return None
-    
-    def create_application(self, application: ApplicationDetail) -> Optional[int]:
-        """Create application detail"""
-        try:
-            query = """
-            INSERT INTO ApplicationDetail 
-            (applicant_id, application_role, cv_path, applied_date, status)
-            VALUES (%s, %s, %s, %s, %s)
-            """
-            
-            params = (
-                application.applicant_id,
-                application.application_role,
-                application.cv_path,
-                application.applied_date,
-                application.status or 'active'
-            )
-            
-            return self.db.execute_insert(query, params)
-            
-        except Exception as e:
-            print(f"❌ Error creating application: {e}")
-            return None
     
     def get_cv_summary_statistics(self) -> Dict[str, Any]:
         """Get CV summary statistics"""
         try:
             # Total CVs
-            total_query = "SELECT COUNT(*) as total FROM ApplicationDetail WHERE status = 'active'"
+            total_query = "SELECT COUNT(*) as total FROM ApplicationDetail"
             total_result = self.db.execute_query(total_query)
             total_cvs = total_result[0]['total'] if total_result else 0
             
@@ -407,7 +361,6 @@ class CVRepository:
             role_query = """
             SELECT application_role, COUNT(*) as count_per_role
             FROM ApplicationDetail 
-            WHERE status = 'active'
             GROUP BY application_role
             ORDER BY count_per_role DESC
             """
@@ -424,56 +377,7 @@ class CVRepository:
         except Exception as e:
             print(f"❌ Error getting statistics: {e}")
             return {'total_cvs': 0, 'total_roles': 0, 'role_breakdown': {}}
-    
-    def scan_cv_files_in_data_folder(self) -> List[Dict[str, str]]:
-        """Scan for CV files in the data/cvs folder"""
-        try:
-            cv_files = []
-            
-            if not os.path.exists(self.cvs_folder):
-                print(f"📁 CVs folder not found: {self.cvs_folder}")
-                return cv_files
-            
-            # Scan for PDF files
-            for root, dirs, files in os.walk(self.cvs_folder):
-                for file in files:
-                    if file.lower().endswith('.pdf'):
-                        full_path = os.path.join(root, file)
-                        relative_path = os.path.relpath(full_path, self.project_root)
-                        
-                        # Determine role from folder structure
-                        rel_to_cvs = os.path.relpath(full_path, self.cvs_folder)
-                        role_parts = os.path.dirname(rel_to_cvs).split(os.sep)
-                        role = role_parts[0] if role_parts and role_parts[0] != '.' else 'General'
-                        
-                        cv_files.append({
-                            'filename': file,
-                            'full_path': full_path,
-                            'relative_path': relative_path,
-                            'role': role,
-                            'cv_path': relative_path
-                        })
-            
-            print(f"📂 Found {len(cv_files)} CV files")
-            return cv_files
-            
-        except Exception as e:
-            print(f"❌ Error scanning CV files: {e}")
-            return []
-    
-    def _load_cv_text_from_file(self, file_path: str) -> str:
-        """Load CV text from file path"""
-        try:
-            full_path = os.path.join(self.project_root, file_path)
-            if os.path.exists(full_path):
-                return self.pdf_parser.parse_pdf(full_path)
-            else:
-                print(f"⚠️ CV file not found: {full_path}")
-                return ""
-        except Exception as e:
-            print(f"⚠️ Error loading CV text from {file_path}: {e}")
-            return ""
-    
+
     def clear_all_data(self):
         """Clear all data from database (for testing)"""
         try:
@@ -483,23 +387,3 @@ class CVRepository:
             print("✅ All data cleared")
         except Exception as e:
             print(f"❌ Error clearing data: {e}")
-
-    # =============================================================================
-    # 🔧 INITIALIZATION AND SETUP
-    # =============================================================================
-    
-    def initialize_cv_extractor(self):
-        """Initialize CV extractor if not already done"""
-        try:
-            if not hasattr(self, 'cv_extractor'):
-                from ..utils.cv_extractor import CVExtractor
-                self.cv_extractor = CVExtractor()
-                print("🔧 CV Extractor initialized")
-        except ImportError:
-            try:
-                from utils.cv_extractor import CVExtractor
-                self.cv_extractor = CVExtractor()
-                print("🔧 CV Extractor initialized")
-            except ImportError as e:
-                print(f"⚠️ Could not initialize CV Extractor: {e}")
-                self.cv_extractor = None

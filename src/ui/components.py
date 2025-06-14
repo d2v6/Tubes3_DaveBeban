@@ -14,26 +14,6 @@ class UIComponents:
         ])
 
     @staticmethod
-    def create_file_selection_section(pick_files_callback, selected_files_text):
-        """Create file selection section"""
-        return ft.Column([
-            ft.Text("1. Select PDF Files", size=18, weight=ft.FontWeight.BOLD),
-            ft.Row([
-                ft.ElevatedButton(
-                    "Select PDF Files",
-                    icon=ft.Icons.UPLOAD_FILE,
-                    on_click=pick_files_callback,
-                    style=ft.ButtonStyle(
-                        color=ft.Colors.WHITE,
-                        bgcolor=ft.Colors.BLUE_600
-                    )
-                ),
-                selected_files_text
-            ], alignment=ft.MainAxisAlignment.START),
-            ft.Divider(),
-        ])
-
-    @staticmethod
     def create_search_configuration(algorithm_radio, keywords_input, top_matches_dropdown, similarity_text, similarity_slider, search_callback, clear_callback):
         """Create search configuration section with all required components"""
         return ft.Column([

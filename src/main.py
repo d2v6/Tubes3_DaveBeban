@@ -52,25 +52,6 @@ def main(page: ft.Page):
                     padding=15,
                     margin=ft.margin.only(bottom=15)
                 ), 
-
-                # Algorithm Test Section
-                ft.Container(
-                    content=ft.Column([
-                        ft.Text("Algorithm Test", size=18,
-                                weight=ft.FontWeight.BOLD),
-                        ft.ElevatedButton(
-                            "Test Your Algorithms (KMP, Boyer-Moore, Levenshtein)",
-                            icon=ft.icons.SCIENCE,
-                            on_click=handlers.test_algorithms,
-                            style=ft.ButtonStyle(
-                                bgcolor=ft.Colors.GREEN_600, color=ft.Colors.WHITE)
-                        )
-                    ]),
-                    bgcolor=ft.Colors.GREEN_50,
-                    border_radius=10,
-                    padding=15,
-                    margin=ft.margin.only(bottom=15)
-                ),
                 ])
             ),
 
