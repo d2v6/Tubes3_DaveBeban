@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, date
+from datetime import  date
 from typing import Optional, List
 
 
@@ -11,9 +11,6 @@ class ApplicantProfile:
     date_of_birth: Optional[date] = None
     address: Optional[str] = None
     phone_number: Optional[str] = None
-    email: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
 
     @property
     def full_name(self) -> str:
@@ -32,9 +29,6 @@ class ApplicationDetail:
     applicant_id: Optional[int] = None
     application_role: Optional[str] = None
     cv_path: Optional[str] = None
-    applied_date: Optional[datetime] = None
-    status: Optional[str] = "active"
-
     # Related data
     applicant_profile: Optional[ApplicantProfile] = None
 

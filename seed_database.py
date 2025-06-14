@@ -1,1056 +1,225 @@
-import sys
 import os
+from datetime import datetime, date
 from pathlib import Path
+import sys
 
-# Add the src directory to Python path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-src_dir = os.path.join(current_dir, 'src')
-sys.path.insert(0, src_dir)
+# Add src to path for imports
+sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-# Also add project root to path
-sys.path.insert(0, current_dir)
-
-print(f"📍 Current directory: {current_dir}")
-print(f"📍 Source directory: {src_dir}")
-print(f"📍 Python path: {sys.path[:3]}...")
-
-# Now we can import from src modules
 try:
-    # Import database modules
-    from database.repository import CVRepository
+    from src.database.connection import DatabaseConnection
+    from src.utils.pdf_parser import PDFParser
+    from src.utils.cv_extractor import CVExtractor
+    from src.models.database_models import ApplicantProfile, ApplicationDetail
+except ImportError:
     from database.connection import DatabaseConnection
-    
-    # Import utility modules
     from utils.pdf_parser import PDFParser
     from utils.cv_extractor import CVExtractor
-    
-    print("✅ All modules imported successfully!")
-    
-except ImportError as e:
-    print(f"❌ Import Error: {e}")
-    print("📋 Checking available modules...")
-    
-    # Check what's available in src directory
-    if os.path.exists(src_dir):
-        print(f"📁 Contents of {src_dir}:")
-        for item in os.listdir(src_dir):
-            item_path = os.path.join(src_dir, item)
-            if os.path.isdir(item_path):
-                print(f"   📂 {item}/")
-                try:
-                    sub_items = os.listdir(item_path)
-                    for sub_item in sub_items[:5]:  # Show first 5 items
-                        print(f"      📄 {sub_item}")
-                    if len(sub_items) > 5:
-                        print(f"      ... and {len(sub_items) - 5} more")
-                except:
-                    pass
-            else:
-                print(f"   📄 {item}")
-    
-    print("\n🔧 Attempting alternative import strategy...")
-    
-    # Try alternative import approach
-    try:
-        # Try importing without relative imports by modifying sys.modules
-        import importlib.util
-        
-        # Import database connection
-        db_path = os.path.join(src_dir, 'database', 'connection.py')
-        if os.path.exists(db_path):
-            spec = importlib.util.spec_from_file_location("database.connection", db_path)
-            connection_module = importlib.util.module_from_spec(spec)
-            sys.modules["database.connection"] = connection_module
-            spec.loader.exec_module(connection_module)
-            DatabaseConnection = connection_module.DatabaseConnection
-            print("✅ DatabaseConnection imported via alternative method")
-        else:
-            raise ImportError(f"database.connection not found at {db_path}")
-        
-        # Import other modules similarly if needed...
-        print("✅ Alternative import successful!")
-        
-    except Exception as alt_e:
-        print(f"❌ Alternative import also failed: {alt_e}")
-        print("\n📋 Please check:")
-        print("   1. All Python files exist in src/ directory")
-        print("   2. All __init__.py files are present")
-        print("   3. No syntax errors in Python files")
-        print("   4. All dependencies are installed")
-        
-        # Create a minimal working version
-        print("\n🔧 Creating minimal working version...")
-        create_minimal_version()
-        sys.exit(1)
-
-def create_minimal_version():
-    """Create a minimal working version if imports fail"""
-    print("📝 Creating minimal seeding script...")
-    
-    minimal_script = "'"
-# Minimal CV ATS Database Seeding Script
-import mysql.connector
-import os
-from dotenv import load_dotenv
-from pathlib import Path
-import random
-
-# Load environment variables
-load_dotenv()
-
-def connect_to_database():
-    """Connect to MySQL database"""
-    try:
-        connection = mysql.connector.connect(
-            host=os.getenv('DB_HOST', 'localhost'),
-            user=os.getenv('DB_USER'),
-            password=os.getenv('DB_PASSWORD'),
-            database=os.getenv('DB_DATABASE', 'cv_ats'),
-            port=int(os.getenv('DB_PORT', 3306))
-        )
-        return connection
-    except Exception as e:
-        print(f"❌ Database connection failed: {e}")
-        return None
-
-def create_tables(connection):
-    """Create database tables if they don't exist"""
-    cursor = connection.cursor()
-    
-    # Create ApplicantProfile table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS ApplicantProfile (
-            applicant_id INT AUTO_INCREMENT PRIMARY KEY,
-            first_name VARCHAR(100),
-            last_name VARCHAR(100),
-            date_of_birth DATE,
-            address TEXT,
-            phone_number VARCHAR(20),
-            email VARCHAR(255),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    
-    # Create ApplicationDetail table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS ApplicationDetail (
-            detail_id INT AUTO_INCREMENT PRIMARY KEY,
-            applicant_id INT,
-            application_role VARCHAR(255),
-            cv_path VARCHAR(500),
-            applied_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            status VARCHAR(50) DEFAULT 'active',
-            FOREIGN KEY (applicant_id) REFERENCES ApplicantProfile(applicant_id)
-        )
-    """)
-    
-    connection.commit()
-    cursor.close()
-    print("✅ Database tables created/verified")
-
-def scan_cv_files():
-    """Scan for CV files in data/cvs folder"""
-    cv_files = []
-    data_folder = Path("data/cvs")
-    
-    if not data_folder.exists():
-        print(f"❌ CV folder not found: {data_folder}")
-        return []
-    
-    for role_folder in data_folder.iterdir():
-        if role_folder.is_dir():
-            pdf_files = list(role_folder.glob("*.pdf"))
-            if pdf_files:
-                # Select up to 5 random files
-                selected = random.sample(pdf_files, min(5, len(pdf_files)))
-                role_name = role_folder.name.replace('-', ' ').title()
-                
-                for pdf_file in selected:
-                    cv_files.append({
-                        'filename': pdf_file.name,
-                        'role': role_name,
-                        'cv_path': f"data/cvs/{role_folder.name}/{pdf_file.name}"
-                    })
-    
-    return cv_files
+    from models.database_models import ApplicantProfile, ApplicationDetail
 
 def seed_database():
-    """🌱 SEED: Isi database dengan CV dari folder data/cvs"""
-    repo = CVRepository()
-    
-    # Connect to database
-    if not repo.connect():
-        print("❌ Failed to connect to database!")
-        return False
+    """Create MySQL database and seed with extracted CV data"""
     
     try:
-        # Optional: Clear existing data
-        print("🗑️ Do you want to clear existing data? (y/N)")
-        clear_choice = input().lower()
-        if clear_choice == 'y':
-            repo.clear_all_data()
-        
-        # Scan CV files from data/cvs folder
-        print("🔍 Scanning CV files...")
-        cv_files = repo.scan_cv_files_in_data_folder()
-        
-        if not cv_files:
-            print("❌ No CV files found in data/cvs folder!")
-            return False
-        
-        print(f"📁 Found {len(cv_files)} CV files to process")
-        
-        # Process each CV file
-        success_count = 0
-        for i, cv_info in enumerate(cv_files, 1):
-            try:
-                print(f"🔄 Processing {i}/{len(cv_files)}: {cv_info['filename']}")
-                
-                # Extract CV text
-                cv_text = repo._load_cv_text_from_file(cv_info['relative_path'])
-                
-                if not cv_text or len(cv_text.strip()) < 50:
-                    print(f"⚠️ No meaningful text extracted from {cv_info['filename']}")
-                    continue
-                
-                # Extract profile info using CV extractor
-                profile_data = repo.cv_extractor.extract_full_summary(cv_text)
-                
-                # Create applicant profile
-                if profile_data.name and profile_data.name.strip():
-                    name_parts = profile_data.name.strip().split()
-                    first_name = name_parts[0] if name_parts else "Applicant"
-                    last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else f"From{cv_info['role'].replace(' ', '')}"
-                else:
-                    # Fallback name
-                    file_base = cv_info['filename'].replace('.pdf', '')
-                    first_name = f"Applicant{file_base[:4]}"
-                    last_name = cv_info['role'].replace(' ', '')
-                
-                profile = ApplicantProfile(
-                    first_name=first_name,
-                    last_name=last_name,
-                    email=profile_data.email if profile_data.email else f"{first_name.lower()}.{last_name.lower()}@example.com",
-                    phone_number=profile_data.phone if profile_data.phone else f"+1555{random.randint(1000000, 9999999)}",
-                    address=profile_data.address if profile_data.address else f"{cv_info['role']} Professional Address"
-                )
-                
-                # Create applicant in database
-                applicant_id = repo.create_applicant(profile)
-                
-                if applicant_id:
-                    # Create application detail
-                    application = ApplicationDetail(
-                        applicant_id=applicant_id,
-                        application_role=cv_info['role'],
-                        cv_path=cv_info['relative_path'],
-                        status="active"
-                    )
-                    
-                    detail_id = repo.create_application(application)
-                    
-                    if detail_id:
-                        success_count += 1
-                        print(f"✅ {i}/{len(cv_files)}: {profile.full_name} - {cv_info['role']}")
-                    else:
-                        print(f"⚠️ Failed to create application for {cv_info['filename']}")
-                else:
-                    print(f"❌ Failed to create profile for {cv_info['filename']}")
-                    
-            except Exception as e:
-                print(f"❌ Error processing {cv_info['filename']}: {e}")
-                continue
-        
-        success_rate = (success_count/len(cv_files)*100) if len(cv_files) > 0 else 0
-        print(f"🎉 Seeding completed: {success_count}/{len(cv_files)} successful ({success_rate:.1f}%)")
-        
-        # Show statistics
-        stats = repo.get_cv_summary_statistics()
-        print(f"📊 Database now has {stats['total_cvs']} CVs across {stats['total_roles']} roles")
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Seeding error: {e}")
-        return False
-    
-    finally:
-        repo.disconnect()
-
-def create_minimal_version():
-    """Create a minimal working version if imports fail"""
-    print("📝 Creating minimal seeding script...")
-    
-    minimal_script = "'"
-# Minimal CV ATS Database Seeding Script
-import mysql.connector
-import os
-from dotenv import load_dotenv
-from pathlib import Path
-import random
-
-# Load environment variables
-load_dotenv()
-
-def connect_to_database():
-    """Connect to MySQL database"""
-    try:
-        connection = mysql.connector.connect(
-            host=os.getenv('DB_HOST', 'localhost'),
-            user=os.getenv('DB_USER'),
-            password=os.getenv('DB_PASSWORD'),
-            database=os.getenv('DB_DATABASE', 'cv_ats'),
-            port=int(os.getenv('DB_PORT', 3306))
-        )
-        return connection
-    except Exception as e:
-        print(f"❌ Database connection failed: {e}")
-        return None
-
-def create_tables(connection):
-    """Create database tables if they don't exist"""
-    cursor = connection.cursor()
-    
-    # Create ApplicantProfile table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS ApplicantProfile (
-            applicant_id INT AUTO_INCREMENT PRIMARY KEY,
-            first_name VARCHAR(100),
-            last_name VARCHAR(100),
-            date_of_birth DATE,
-            address TEXT,
-            phone_number VARCHAR(20),
-            email VARCHAR(255),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    
-    # Create ApplicationDetail table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS ApplicationDetail (
-            detail_id INT AUTO_INCREMENT PRIMARY KEY,
-            applicant_id INT,
-            application_role VARCHAR(255),
-            cv_path VARCHAR(500),
-            applied_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            status VARCHAR(50) DEFAULT 'active',
-            FOREIGN KEY (applicant_id) REFERENCES ApplicantProfile(applicant_id)
-        )
-    """)
-    
-    connection.commit()
-    cursor.close()
-    print("✅ Database tables created/verified")
-
-def scan_cv_files():
-    """Scan for CV files in data/cvs folder"""
-    cv_files = []
-    data_folder = Path("data/cvs")
-    
-    if not data_folder.exists():
-        print(f"❌ CV folder not found: {data_folder}")
-        return []
-    
-    for role_folder in data_folder.iterdir():
-        if role_folder.is_dir():
-            pdf_files = list(role_folder.glob("*.pdf"))
-            if pdf_files:
-                # Select up to 5 random files
-                selected = random.sample(pdf_files, min(5, len(pdf_files)))
-                role_name = role_folder.name.replace('-', ' ').title()
-                
-                for pdf_file in selected:
-                    cv_files.append({
-                        'filename': pdf_file.name,
-                        'role': role_name,
-                        'cv_path': f"data/cvs/{role_folder.name}/{pdf_file.name}"
-                    })
-    
-    return cv_files
-
-def seed_database():
-    """🌱 SEED: Isi database dengan CV dari folder data/cvs"""
-    repo = CVRepository()
-    
-    # Connect to database
-    if not repo.connect():
-        print("❌ Failed to connect to database!")
-        return False
-    
-    try:
-        # Optional: Clear existing data
-        print("🗑️ Do you want to clear existing data? (y/N)")
-        clear_choice = input().lower()
-        if clear_choice == 'y':
-            repo.clear_all_data()
-        
-        # Scan CV files from data/cvs folder
-        print("🔍 Scanning CV files...")
-        cv_files = repo.scan_cv_files_in_data_folder()
-        
-        if not cv_files:
-            print("❌ No CV files found in data/cvs folder!")
-            return False
-        
-        print(f"📁 Found {len(cv_files)} CV files to process")
-        
-        # Process each CV file
-        success_count = 0
-        for i, cv_info in enumerate(cv_files, 1):
-            try:
-                print(f"🔄 Processing {i}/{len(cv_files)}: {cv_info['filename']}")
-                
-                # Extract CV text
-                cv_text = repo._load_cv_text_from_file(cv_info['relative_path'])
-                
-                if not cv_text or len(cv_text.strip()) < 50:
-                    print(f"⚠️ No meaningful text extracted from {cv_info['filename']}")
-                    continue
-                
-                # Extract profile info using CV extractor
-                profile_data = repo.cv_extractor.extract_full_summary(cv_text)
-                
-                # Create applicant profile
-                if profile_data.name and profile_data.name.strip():
-                    name_parts = profile_data.name.strip().split()
-                    first_name = name_parts[0] if name_parts else "Applicant"
-                    last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else f"From{cv_info['role'].replace(' ', '')}"
-                else:
-                    # Fallback name
-                    file_base = cv_info['filename'].replace('.pdf', '')
-                    first_name = f"Applicant{file_base[:4]}"
-                    last_name = cv_info['role'].replace(' ', '')
-                
-                profile = ApplicantProfile(
-                    first_name=first_name,
-                    last_name=last_name,
-                    email=profile_data.email if profile_data.email else f"{first_name.lower()}.{last_name.lower()}@example.com",
-                    phone_number=profile_data.phone if profile_data.phone else f"+1555{random.randint(1000000, 9999999)}",
-                    address=profile_data.address if profile_data.address else f"{cv_info['role']} Professional Address"
-                )
-                
-                # Create applicant in database
-                applicant_id = repo.create_applicant(profile)
-                
-                if applicant_id:
-                    # Create application detail
-                    application = ApplicationDetail(
-                        applicant_id=applicant_id,
-                        application_role=cv_info['role'],
-                        cv_path=cv_info['relative_path'],
-                        status="active"
-                    )
-                    
-                    detail_id = repo.create_application(application)
-                    
-                    if detail_id:
-                        success_count += 1
-                        print(f"✅ {i}/{len(cv_files)}: {profile.full_name} - {cv_info['role']}")
-                    else:
-                        print(f"⚠️ Failed to create application for {cv_info['filename']}")
-                else:
-                    print(f"❌ Failed to create profile for {cv_info['filename']}")
-                    
-            except Exception as e:
-                print(f"❌ Error processing {cv_info['filename']}: {e}")
-                continue
-        
-        success_rate = (success_count/len(cv_files)*100) if len(cv_files) > 0 else 0
-        print(f"🎉 Seeding completed: {success_count}/{len(cv_files)} successful ({success_rate:.1f}%)")
-        
-        # Show statistics
-        stats = repo.get_cv_summary_statistics()
-        print(f"📊 Database now has {stats['total_cvs']} CVs across {stats['total_roles']} roles")
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Seeding error: {e}")
-        return False
-    
-    finally:
-        repo.disconnect()
-
-def create_minimal_version():
-    """Create a minimal working version if imports fail"""
-    print("📝 Creating minimal seeding script...")
-    
-    minimal_script = "'"
-# Minimal CV ATS Database Seeding Script
-import mysql.connector
-import os
-from dotenv import load_dotenv
-from pathlib import Path
-import random
-
-# Load environment variables
-load_dotenv()
-
-def connect_to_database():
-    """Connect to MySQL database"""
-    try:
-        connection = mysql.connector.connect(
-            host=os.getenv('DB_HOST', 'localhost'),
-            user=os.getenv('DB_USER'),
-            password=os.getenv('DB_PASSWORD'),
-            database=os.getenv('DB_DATABASE', 'cv_ats'),
-            port=int(os.getenv('DB_PORT', 3306))
-        )
-        return connection
-    except Exception as e:
-        print(f"❌ Database connection failed: {e}")
-        return None
-
-def create_tables(connection):
-    """Create database tables if they don't exist"""
-    cursor = connection.cursor()
-    
-    # Create ApplicantProfile table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS ApplicantProfile (
-            applicant_id INT AUTO_INCREMENT PRIMARY KEY,
-            first_name VARCHAR(100),
-            last_name VARCHAR(100),
-            date_of_birth DATE,
-            address TEXT,
-            phone_number VARCHAR(20),
-            email VARCHAR(255),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    
-    # Create ApplicationDetail table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS ApplicationDetail (
-            detail_id INT AUTO_INCREMENT PRIMARY KEY,
-            applicant_id INT,
-            application_role VARCHAR(255),
-            cv_path VARCHAR(500),
-            applied_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            status VARCHAR(50) DEFAULT 'active',
-            FOREIGN KEY (applicant_id) REFERENCES ApplicantProfile(applicant_id)
-        )
-    """)
-    
-    connection.commit()
-    cursor.close()
-    print("✅ Database tables created/verified")
-
-def scan_cv_files():
-    """Scan for CV files in data/cvs folder"""
-    cv_files = []
-    data_folder = Path("data/cvs")
-    
-    if not data_folder.exists():
-        print(f"❌ CV folder not found: {data_folder}")
-        return []
-    
-    for role_folder in data_folder.iterdir():
-        if role_folder.is_dir():
-            pdf_files = list(role_folder.glob("*.pdf"))
-            if pdf_files:
-                # Select up to 5 random files
-                selected = random.sample(pdf_files, min(5, len(pdf_files)))
-                role_name = role_folder.name.replace('-', ' ').title()
-                
-                for pdf_file in selected:
-                    cv_files.append({
-                        'filename': pdf_file.name,
-                        'role': role_name,
-                        'cv_path': f"data/cvs/{role_folder.name}/{pdf_file.name}"
-                    })
-    
-    return cv_files
-
-def seed_database():
-    """🌱 SEED: Isi database dengan CV dari folder data/cvs"""
-    repo = CVRepository()
-    
-    # Connect to database
-    if not repo.connect():
-        print("❌ Failed to connect to database!")
-        return False
-    
-    try:
-        # Optional: Clear existing data
-        print("🗑️ Do you want to clear existing data? (y/N)")
-        clear_choice = input().lower()
-        if clear_choice == 'y':
-            repo.clear_all_data()
-        
-        # Scan CV files from data/cvs folder
-        print("🔍 Scanning CV files...")
-        cv_files = repo.scan_cv_files_in_data_folder()
-        
-        if not cv_files:
-            print("❌ No CV files found in data/cvs folder!")
-            return False
-        
-        print(f"📁 Found {len(cv_files)} CV files to process")
-        
-        # Process each CV file
-        success_count = 0
-        for i, cv_info in enumerate(cv_files, 1):
-            try:
-                print(f"🔄 Processing {i}/{len(cv_files)}: {cv_info['filename']}")
-                
-                # Extract CV text
-                cv_text = repo._load_cv_text_from_file(cv_info['relative_path'])
-                
-                if not cv_text or len(cv_text.strip()) < 50:
-                    print(f"⚠️ No meaningful text extracted from {cv_info['filename']}")
-                    continue
-                
-                # Extract profile info using CV extractor
-                profile_data = repo.cv_extractor.extract_full_summary(cv_text)
-                
-                # Create applicant profile
-                if profile_data.name and profile_data.name.strip():
-                    name_parts = profile_data.name.strip().split()
-                    first_name = name_parts[0] if name_parts else "Applicant"
-                    last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else f"From{cv_info['role'].replace(' ', '')}"
-                else:
-                    # Fallback name
-                    file_base = cv_info['filename'].replace('.pdf', '')
-                    first_name = f"Applicant{file_base[:4]}"
-                    last_name = cv_info['role'].replace(' ', '')
-                
-                profile = ApplicantProfile(
-                    first_name=first_name,
-                    last_name=last_name,
-                    email=profile_data.email if profile_data.email else f"{first_name.lower()}.{last_name.lower()}@example.com",
-                    phone_number=profile_data.phone if profile_data.phone else f"+1555{random.randint(1000000, 9999999)}",
-                    address=profile_data.address if profile_data.address else f"{cv_info['role']} Professional Address"
-                )
-                
-                # Create applicant in database
-                applicant_id = repo.create_applicant(profile)
-                
-                if applicant_id:
-                    # Create application detail
-                    application = ApplicationDetail(
-                        applicant_id=applicant_id,
-                        application_role=cv_info['role'],
-                        cv_path=cv_info['relative_path'],
-                        status="active"
-                    )
-                    
-                    detail_id = repo.create_application(application)
-                    
-                    if detail_id:
-                        success_count += 1
-                        print(f"✅ {i}/{len(cv_files)}: {profile.full_name} - {cv_info['role']}")
-                    else:
-                        print(f"⚠️ Failed to create application for {cv_info['filename']}")
-                else:
-                    print(f"❌ Failed to create profile for {cv_info['filename']}")
-                    
-            except Exception as e:
-                print(f"❌ Error processing {cv_info['filename']}: {e}")
-                continue
-        
-        success_rate = (success_count/len(cv_files)*100) if len(cv_files) > 0 else 0
-        print(f"🎉 Seeding completed: {success_count}/{len(cv_files)} successful ({success_rate:.1f}%)")
-        
-        # Show statistics
-        stats = repo.get_cv_summary_statistics()
-        print(f"📊 Database now has {stats['total_cvs']} CVs across {stats['total_roles']} roles")
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Seeding error: {e}")
-        return False
-    
-    finally:
-        repo.disconnect()
-
-def check_prerequisites():
-    """Check if all prerequisites are met"""
-    print("🔍 Checking prerequisites...")
-    
-    issues = []
-    
-    # Check .env file
-    env_file = os.path.join(current_dir, '.env')
-    if not os.path.exists(env_file):
-        issues.append("❌ .env file not found in project root")
-    else:
-        print("✅ .env file found")
-    
-    # Check data folder
-    data_folder = Path(os.path.join(current_dir, "data", "cvs"))
-    if not data_folder.exists():
-        issues.append(f"❌ data/cvs folder not found at {data_folder}")
-    else:
-        cv_files = list(data_folder.rglob("*.pdf"))
-        if cv_files:
-            print(f"✅ Found {len(cv_files)} CV files in data folder")
-        else:
-            issues.append("⚠️ No PDF files found in data/cvs folder")
-    
-    # Check required Python packages
-    required_packages = [
-        'mysql.connector',
-        'python-dotenv',
-        'pypdf'
-    ]
-    
-    for package in required_packages:
-        try:
-            if package == 'python-dotenv':
-                import dotenv
-            elif package == 'mysql.connector':
-                import mysql.connector
-            elif package == 'pypdf':
-                import pypdf
-            print(f"✅ {package} is available")
-        except ImportError:
-            issues.append(f"❌ Missing package: {package}")
-    
-    return issues
-
-def show_folder_structure():
-    """Show the actual folder structure found"""
-    print("\n📂 Checking CV folder structure...")
-    
-    data_folder = Path(os.path.join(current_dir, "data", "cvs"))
-    
-    if not data_folder.exists():
-        print(f"❌ Folder not found: {data_folder.absolute()}")
-        print(f"   Current directory: {current_dir}")
-        return False
-    
-    print(f"📁 Scanning: {data_folder.absolute()}")
-    
-    try:
-        role_folders = [f for f in data_folder.iterdir() if f.is_dir()]
-    except PermissionError:
-        print(f"❌ Permission denied accessing {data_folder}")
-        return False
-    
-    if not role_folders:
-        print("❌ No role folders found!")
-        return False
-    
-    print(f"\n📊 Found {len(role_folders)} role folders:")
-    
-    total_pdfs = 0
-    valid_folders = 0
-    
-    for folder in sorted(role_folders):
-        try:
-            pdf_files = list(folder.glob("*.pdf"))
-            total_pdfs += len(pdf_files)
-            
-            if pdf_files:
-                valid_folders += 1
-                print(f"   📂 {folder.name}: {len(pdf_files)} PDF files")
-                
-                # Show first few files as examples
-                for i, pdf_file in enumerate(pdf_files[:3]):
-                    print(f"      📄 {pdf_file.name}")
-                if len(pdf_files) > 3:
-                    print(f"      ... and {len(pdf_files) - 3} more files")
-            else:
-                print(f"   📂 {folder.name}: ⚠️ No PDF files found")
-        except Exception as e:
-            print(f"   📂 {folder.name}: ❌ Error accessing folder: {e}")
-    
-    print(f"\n📊 Total PDF files available: {total_pdfs}")
-    print(f"📊 Valid folders with PDFs: {valid_folders}")
-    
-    if valid_folders > 0:
-        expected_seeding = valid_folders * 5
-        print(f"📊 Expected seeding: 5 files per role = up to {expected_seeding} total applicants")
-        return True
-    else:
-        return False
-
-def test_database_connection():
-    """Test database connection"""
-    print("\n🔗 Testing database connection...")
-    
-    try:
-        # Test basic MySQL connection
-        import mysql.connector
-        from dotenv import load_dotenv
-        
-        load_dotenv()
-        
-        connection = mysql.connector.connect(
-            host=os.getenv('DB_HOST', 'localhost'),
-            user=os.getenv('DB_USER'),
-            password=os.getenv('DB_PASSWORD'),
-            database=os.getenv('DB_DATABASE', 'cv_ats'),
-            port=int(os.getenv('DB_PORT', 3306))
-        )
-        
-        if connection.is_connected():
-            print("✅ Database connection successful!")
-            
-            cursor = connection.cursor()
-            cursor.execute("SELECT 1")
-            result = cursor.fetchone()
-            
-            if result:
-                print("✅ Database query successful")
-            
-            cursor.close()
-            connection.close()
-            return True
-        else:
-            print("❌ Database connection failed!")
-            return False
-            
-    except Exception as e:
-        print(f"❌ Database connection test failed: {e}")
-        print("\n📋 Please check your .env file:")
-        print("   DB_HOST=localhost")
-        print("   DB_USER=your_mysql_username")
-        print("   DB_PASSWORD=your_mysql_password")
-        print("   DB_DATABASE=cv_ats")
-        print("   DB_PORT=3306")
-        return False
-
-def run_minimal_seeding():
-    """Run minimal seeding using direct database connection"""
-    print("\n🌱 Running Minimal CV Seeding")
-    print("=" * 50)
-    
-    try:
-        import mysql.connector
-        from dotenv import load_dotenv
-        
-        load_dotenv()
-        
         # Connect to database
-        print("🔗 Connecting to database...")
-        connection = mysql.connector.connect(
-            host=os.getenv('DB_HOST', 'localhost'),
-            user=os.getenv('DB_USER'),
-            password=os.getenv('DB_PASSWORD'),
-            database=os.getenv('DB_DATABASE', 'cv_ats'),
-            port=int(os.getenv('DB_PORT', 3306))
-        )
-        
-        print("✅ Database connected successfully!")
-        
-        # Create tables
-        cursor = connection.cursor()
-        
-        print("📋 Creating/verifying database tables...")
-        
-        # Create ApplicantProfile table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS ApplicantProfile (
-                applicant_id INT AUTO_INCREMENT PRIMARY KEY,
-                first_name VARCHAR(100),
-                last_name VARCHAR(100),
-                date_of_birth DATE,
-                address TEXT,
-                phone_number VARCHAR(20),
-                email VARCHAR(255),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        # Create ApplicationDetail table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS ApplicationDetail (
-                detail_id INT AUTO_INCREMENT PRIMARY KEY,
-                applicant_id INT,
-                application_role VARCHAR(255),
-                cv_path VARCHAR(500),
-                applied_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                status VARCHAR(50) DEFAULT 'active',
-                FOREIGN KEY (applicant_id) REFERENCES ApplicantProfile(applicant_id)
-            )
-        """)
-        
-        connection.commit()
-        print("✅ Database tables ready")
-        
-        # Scan CV files
-        print("📂 Scanning CV files...")
-        cv_files = []
-        data_folder = Path("data/cvs")
-        
-        if data_folder.exists():
-            for role_folder in data_folder.iterdir():
-                if role_folder.is_dir():
-                    pdf_files = list(role_folder.glob("*.pdf"))
-                    if pdf_files:
-                        # Select up to 5 random files
-                        import random
-                        selected = random.sample(pdf_files, min(5, len(pdf_files)))
-                        role_name = role_folder.name.replace('-', ' ').replace('_', ' ').title()
-                        
-                        for pdf_file in selected:
-                            cv_files.append({
-                                'filename': pdf_file.name,
-                                'role': role_name,
-                                'cv_path': f"data/cvs/{role_folder.name}/{pdf_file.name}"
-                            })
-        
-        if not cv_files:
-            print("❌ No CV files found!")
+        db = DatabaseConnection()
+        if not db.connect():
+            print("❌ Failed to connect to MySQL database")
             return False
         
-        print(f"✅ Found {len(cv_files)} CV files to process")
+        print("✅ Connected to MySQL database")
         
-        # Clear existing data option
-        choice = input("\nClear existing data? (y/N): ").strip().lower()
-        if choice == 'y':
-            cursor.execute("DELETE FROM ApplicationDetail")
-            cursor.execute("DELETE FROM ApplicantProfile")
-            connection.commit()
-            print("✅ Existing data cleared")
+        # Initialize extractors
+        pdf_parser = PDFParser()
+        cv_extractor = CVExtractor()
         
-        # Seed data
-        print(f"\n🌱 Seeding {len(cv_files)} applicants...")
-        success_count = 0
+        # Seed from data folder
+        seed_from_data_folder(db, pdf_parser, cv_extractor)
         
-        for i, cv_info in enumerate(cv_files, 1):
-            try:
-                # Generate applicant data
-                first_name = f"Applicant{i:03d}"
-                last_name = cv_info['role'].replace(' ', '')
-                email = f"applicant{i:03d}@{cv_info['role'].lower().replace(' ', '')}example.com"
-                phone = f"+1555{random.randint(1000000, 9999999)}"
-                address = f"{cv_info['role']} Professional Address"
-                
-                # Insert applicant
-                cursor.execute("""
-                    INSERT INTO ApplicantProfile (first_name, last_name, email, phone_number, address)
-                    VALUES (%s, %s, %s, %s, %s)
-                """, (first_name, last_name, email, phone, address))
-                
-                applicant_id = cursor.lastrowid
-                
-                # Insert application
-                cursor.execute("""
-                    INSERT INTO ApplicationDetail (applicant_id, application_role, cv_path, status)
-                    VALUES (%s, %s, %s, %s)
-                """, (applicant_id, cv_info['role'], cv_info['cv_path'], 'active'))
-                
-                success_count += 1
-                print(f"✅ {i}/{len(cv_files)}: {first_name} {last_name} - {cv_info['role']}")
-                
-            except Exception as e:
-                print(f"❌ Failed {i}/{len(cv_files)}: {cv_info['filename']} - {e}")
+        # Close connection
+        db.disconnect()
         
-        connection.commit()
-        
-        # Show results
-        cursor.execute("SELECT COUNT(*) FROM ApplicantProfile")
-        total_applicants = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT application_role, COUNT(*) FROM ApplicationDetail GROUP BY application_role")
-        role_stats = cursor.fetchall()
-        
-        print(f"\n🎉 Seeding completed: {success_count}/{len(cv_files)} successful")
-        print(f"✅ Total applicants in database: {total_applicants}")
-        print("\n📊 Role breakdown:")
-        for role, count in role_stats:
-            print(f"   📂 {role}: {count} applicants")
-        
-        cursor.close()
-        connection.close()
-        
-        return success_count > 0
+        print("✅ Database seeding completed!")
+        return True
         
     except Exception as e:
-        print(f"❌ Minimal seeding failed: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Database error: {e}")
         return False
 
-def main():
-    """Main function"""
-    print("🎯 CV ATS - REAL DATA SEEDING TOOL")
-    print("=" * 60)
-    print("This tool will seed your database with real CV files")
-    print("from the data/cvs folder structure (5 files per role)")
-    print("=" * 60)
+def find_pdf_files_recursive(base_path: str) -> list:
+    """Recursively find all PDF files in directory structure"""
+    pdf_files = []
+    base_path = Path(base_path)
     
-    # Step 1: Check prerequisites
-    print("\n1️⃣ CHECKING PREREQUISITES")
-    issues = check_prerequisites()
+    if not base_path.exists():
+        print(f"⚠️ Base path '{base_path}' does not exist")
+        return pdf_files
     
-    if issues:
-        print("\n❌ Prerequisites check failed:")
-        for issue in issues:
-            print(f"   {issue}")
-        print("\n🔧 Please fix these issues before running seeding:")
-        print("   - Install missing packages: pip install mysql-connector-python python-dotenv pypdf")
-        print("   - Create .env file with database credentials")
-        print("   - Ensure data/cvs folder exists with PDF files")
-        return False
+    print(f"🔍 Scanning directory: {base_path.absolute()}")
     
-    print("✅ All prerequisites met!")
+    # Walk through all subdirectories
+    for file_path in base_path.rglob("*.pdf"):
+        if file_path.is_file():
+            # Get relative path from base directory for cv_path
+            relative_path = file_path.relative_to(base_path)
+            folder_path = str(relative_path.parent) if relative_path.parent != Path('.') else "root"
+            
+            # Create cv_path that matches your existing database structure
+            cv_path = str(relative_path).replace('\\', '/')  # Ensure forward slashes
+            
+            pdf_files.append({
+                'full_path': str(file_path.absolute()),
+                'filename': file_path.name,
+                'folder_path': folder_path,
+                'cv_path': f"data/{cv_path}",  # Add data/ prefix to match your structure
+            })
     
-    # Step 2: Check folder structure
-    print("\n2️⃣ CHECKING FOLDER STRUCTURE")
-    if not show_folder_structure():
-        print("\n❌ Cannot proceed without proper folder structure!")
-        print("\n📋 Expected structure:")
-        print("   data/cvs/ACCOUNTANT/*.pdf")
-        print("   data/cvs/ENGINEERING/*.pdf")
-        print("   data/cvs/INFORMATION-TECHNOLOGY/*.pdf")
-        print("   etc...")
-        return False
+    return pdf_files
+
+def seed_from_data_folder(db: DatabaseConnection, pdf_parser: PDFParser, cv_extractor: CVExtractor):
+    """Seed database with extracted CV data from ./data folder recursively"""
     
-    # Step 3: Test database connection
-    print("\n3️⃣ TESTING DATABASE CONNECTION")
-    if not test_database_connection():
-        print("❌ Database connection test failed")
-        return False
+    base_data_path = "./data"
     
-    # Step 4: Run seeding (using minimal approach due to import issues)
-    print("\n4️⃣ RUNNING SEEDING PROCESS")
-    print("ℹ️ Using minimal seeding approach due to module import issues")
+    print(f"\n📁 Starting recursive PDF scan from: {os.path.abspath(base_data_path)}")
     
-    proceed = input("Do you want to proceed with minimal seeding? (y/N): ").strip().lower()
-    if proceed != 'y':
-        print("ℹ️ Seeding cancelled by user")
-        return False
+    # Find all PDF files recursively
+    pdf_files = find_pdf_files_recursive(base_data_path)
     
-    success = run_minimal_seeding()
+    if not pdf_files:
+        print("⚠️ No PDF files found in ./data directory")
+        return
     
-    # Step 5: Final message
-    print("\n5️⃣ FINAL RESULTS")
-    print("=" * 60)
+    print(f"📄 Found {len(pdf_files)} PDF files")
     
-    if success:
-        print("🎉 SUCCESS! Your database is now populated with real CV data!")
-        print("\n🚀 Next steps:")
-        print("   1. Fix module import issues in your main application")
-        print("   2. Run your main application: python src/main.py")
-        print("   3. Test CV search and matching features")
-        print("   4. Verify string algorithms work with real data")
-    else:
-        print("❌ FAILED! Please check error messages and try again.")
-        print("\n🔧 Common solutions:")
-        print("   1. Check database credentials in .env file")
-        print("   2. Ensure MySQL server is running")
-        print("   3. Check file permissions on data/cvs folder")
+    successful_inserts = 0
+    failed_inserts = 0
     
-    return success
+    for pdf_info in pdf_files:
+        try:
+            print(f"\n📖 Processing: {pdf_info['folder_path']}/{pdf_info['filename']}")
+            
+            # Extract CV information using CVExtractor
+            cv_content=PDFParser.parse_pdf(pdf_info.full_path)
+            
+            if not cv_content:
+                failed_inserts += 1
+                continue
+            
+            # Display extracted information
+            print(f"    First Name: {contact_information[0]}")
+            print(f"    Last Name: {contact_information[1]}")
+            print(f"   📱 Phone: {contact_information[2]}")
+            print(f"   🏠 Address: {contact_information[3]}")
+            
+            
+            # Insert applicant profile
+            profile_query = """
+            INSERT INTO ApplicantProfile 
+            (first_name, last_name, phone_number, address, date_of_birth)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """
+            
+            profile_params = (
+                applicant_profile.first_name,
+                applicant_profile.last_name,
+                applicant_profile.email,
+                applicant_profile.phone_number,
+                applicant_profile.address,
+                applicant_profile.date_of_birth
+            )
+            
+            applicant_id = db.execute_insert(profile_query, profile_params)
+            
+            if applicant_id:
+                # Determine role from CV content and folder
+                application_role = determine_role_from_cv_content(cv_summary, pdf_info['folder_path'])
+                
+                # Create ApplicationDetail
+                application_query = """
+                INSERT INTO ApplicationDetail 
+                (applicant_id, application_role, cv_path, applied_date, status)
+                VALUES (%s, %s, %s, %s, %s)
+                """
+                
+                application_params = (
+                    applicant_id,
+                    application_role,
+                    pdf_info['cv_path'],
+                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'active'
+                )
+                
+                if db.execute_insert(application_query, application_params):
+                    successful_inserts += 1
+                    print(f"   ✅ Added to database: {applicant_profile.first_name} {applicant_profile.last_name}")
+                    print(f"      � CV Path: {pdf_info['cv_path']}")
+                    print(f"      � Role: {application_role}")
+                    
+                    # Optionally, log extracted skills and experience for debugging
+                    if cv_summary.skills:
+                        print(f"      🔧 Key Skills: {', '.join(cv_summary.skills[:3])}")
+                    if cv_summary.experience:
+                        latest_exp = cv_summary.experience[0]
+                        print(f"      📈 Latest Role: {latest_exp.get('position', 'N/A')}")
+                        
+                else:
+                    failed_inserts += 1
+                    print(f"   ❌ Failed to create application detail")
+            else:
+                failed_inserts += 1
+                print(f"   ❌ Failed to create applicant profile")
+                
+        except Exception as e:
+            failed_inserts += 1
+            print(f"   ❌ Error processing {pdf_info['filename']}: {e}")
+    
+    print(f"\n📊 Seeding Summary:")
+    print(f"   ✅ Successfully processed: {successful_inserts} CVs")
+    print(f"   ❌ Failed to process: {failed_inserts} CVs")
+
+def scan_data_folder():
+    """Just scan and display what's in the data folder"""
+    
+    base_path = "./data"
+    
+    if not os.path.exists(base_path):
+        print(f"❌ Data folder not found: {os.path.abspath(base_path)}")
+        print("💡 Create a './data' folder and add PDF files to seed the database")
+        return
+    
+    pdf_files = find_pdf_files_recursive(base_path)
+    
+    if not pdf_files:
+        print(f"📁 Data folder exists but no PDF files found in: {os.path.abspath(base_path)}")
+        return
+    
+    print(f"📂 Data Folder Structure:")
+    print(f"Base: {os.path.abspath(base_path)}")
+    
+    # Group by folder
+    folders = {}
+    for pdf in pdf_files:
+        folder = pdf['folder_path']
+        if folder not in folders:
+            folders[folder] = []
+        folders[folder].append(pdf)
+    
+    for folder, files in folders.items():
+        total_size = sum(f['file_size'] for f in files)
+        print(f"\n📁 {folder}/ ({len(files)} files, {total_size:,} bytes)")
+        for file_info in files:
+            print(f"   📄 {file_info['filename']} → CV Path: {file_info['cv_path']}")
 
 if __name__ == "__main__":
-    try:
-        # Change to script directory to ensure relative paths work
-        os.chdir(current_dir)
-        
-        success = main()
-        exit(0 if success else 1)
-        
-    except KeyboardInterrupt:
-        print("\n\n⚠️ Process interrupted by user")
-        exit(1)
-    except Exception as e:
-        print(f"\n❌ Unexpected error: {e}")
-        import traceback
-        traceback.print_exc()
-        exit(1)
+    print("🔍 Scanning ./data folder...")
+    scan_data_folder()
+    
+    print("\n" + "=" * 70)
+    
+    success = seed_database()
+    
+    if success:
+        print("\n✅ Database seeding successful!")
+    else:
+        print("\n❌ Database seeding failed!")

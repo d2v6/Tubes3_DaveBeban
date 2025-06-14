@@ -5,8 +5,8 @@ from dataclasses import dataclass, field
 @dataclass
 class CVSummary:
     """Data class to store extracted CV information."""
-    name: str = ""
-    email: str = ""
+    first_name: str = ""
+    last_name: str = ""
     phone: str = ""
     address: str = ""
     summary: str = ""
@@ -18,72 +18,21 @@ class CVExtractor:
     """Utility class for extracting structured information from CV text."""
     
     @staticmethod
-    def extract_contact_info(text: str) -> Tuple[str, str, str, str]:
+    def extract_application_role(text: str) -> str:
         """
-        Extract name, email, phone, and address from CV text.
+        Extract application_role from CV text.
         
         Args:
             text: Raw CV text content
             
         Returns:
-            Tuple containing (name, email, phone, address)
+            Tuple containing application_role
         """
-        # Extract email using regex pattern
-        email = re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', text)
-        email = email.group(0) if email else ""
-        
-        # Phone number patterns for different formats
-        phone_patterns = [
-            r'(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})',  # US format
-            r'(\+?\d{1,3}[-.\s]?)?\d{10,}',  # International format
-            r'\b\d{3}-\d{3}-\d{4}\b',        # Standard format
-            r'\b\d{10}\b'                    # Simple 10 digits
-        ]
-        
-        # Try each phone pattern until one matches
-        phone = ""
-        for pattern in phone_patterns:
-            match = re.search(pattern, text)
-            if match:
-                if isinstance(match.group(0), str):
-                    # Clean phone but preserve some formatting
-                    phone = re.sub(r'[^\d+\-\(\)\s]', '', match.group(0)).strip()
-                break
-        
-        # Extract name from first few lines with improved validation
         lines = text.split('\n')
-        name = ""
-        for line in lines[:10]:  # Check first 10 lines
-            line = line.strip()
-            words = line.split()
-            # Enhanced name criteria: allow dots, apostrophes, hyphens
-            if (2 <= len(words) <= 4 and len(line) <= 50 and
-                all(re.match(r"^[A-Z][a-z]*[.''-]?[a-z]*$", word) for word in words if word)):
-                name = line
-                break
+        application_role = lines[0].strip
         
-        # Extract address using multiple patterns
-        address = ""
-        address_patterns = [
-            r'\b\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd)[^,\n]*',
-            r'[A-Za-z\s,]+,\s*[A-Z]{2}(?:\s+\d{5})?',  # City, State ZIP
-            r'(?i)(?:address|location)[:\s]*([^\n]+)'   # Labeled address
-        ]
-        
-        for pattern in address_patterns:
-            match = re.search(pattern, text)
-            if match:
-                if len(match.groups()) > 0:  # Has capture group
-                    address = match.group(1).strip()
-                else:  # No capture group
-                    address = match.group(0).strip()
-                
-                # Validate address length
-                if len(address) > 10:  # Reasonable address length
-                    break
-        
-        return name, email, phone, address
-
+        return application_role
+    
     @staticmethod
     def extract_skills(text: str) -> List[str]:
         """
@@ -270,13 +219,13 @@ class CVExtractor:
         Returns:
             CVSummary object containing all extracted information
         """
-        # Extract contact information (now returns 4 values including address)
-        name, email, phone, address = CVExtractor.extract_contact_info(text)
+        # Extract contact information (returns first_name, last_name, phone, address)
+        first_name, last_name, phone, address = CVExtractor.extract_contact_info(text)
         
         # Create and return complete CV summary
         return CVSummary(
-            name=name,
-            email=email,
+            first_name=first_name,
+            last_name=last_name,
             phone=phone,
             address=address,  # Now properly filled
             summary=CVExtractor.extract_summary(text),

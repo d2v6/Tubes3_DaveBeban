@@ -23,62 +23,61 @@ def main(page: ft.Page):
             ft.Container(
                 content=ft.Column([
                     ft.Text(
-                        "🧪 CV ATS - Algorithm & Database Test",
+                        "CV ATS",
                         size=24,
                         weight=ft.FontWeight.BOLD,
                         color=ft.Colors.BLUE_700
-                    ),
-                    ft.Text(
-                        "Simple UI to test your string matching algorithms and database connection",
-                        size=14,
-                        color=ft.Colors.GREY_700
                     ),
                 ]),
                 margin=ft.margin.only(bottom=20)
             ),
 
+            ft.Container(
+                content=ft.Row([
             # Database Test Section
-            ft.Container(
-                content=ft.Column([
-                    ft.Text("🔌 Database Connection Test",
-                            size=18, weight=ft.FontWeight.BOLD),
-                    ft.ElevatedButton(
-                        "Test Database Connection",
-                        icon=ft.icons.STORAGE,
-                        on_click=handlers.test_database_connection,
-                        style=ft.ButtonStyle(
-                            bgcolor=ft.Colors.BLUE_600, color=ft.Colors.WHITE)
-                    )
-                ]),
-                bgcolor=ft.Colors.BLUE_50,
-                border_radius=10,
-                padding=15,
-                margin=ft.margin.only(bottom=15)
-            ),
+                ft.Container(
+                    content=ft.Column([
+                        ft.Text("Database Connection Test",
+                                size=18, weight=ft.FontWeight.BOLD),
+                        ft.ElevatedButton(
+                            "Test Database Connection",
+                            icon=ft.icons.STORAGE,
+                            on_click=handlers.test_database_connection,
+                            style=ft.ButtonStyle(
+                                bgcolor=ft.Colors.BLUE_600, color=ft.Colors.WHITE)
+                        )
+                    ]),
+                    bgcolor=ft.Colors.BLUE_50,
+                    border_radius=10,
+                    padding=15,
+                    margin=ft.margin.only(bottom=15)
+                ), 
 
-            # Algorithm Test Section
-            ft.Container(
-                content=ft.Column([
-                    ft.Text("🧪 Algorithm Test", size=18,
-                            weight=ft.FontWeight.BOLD),
-                    ft.ElevatedButton(
-                        "Test Your Algorithms (KMP, Boyer-Moore, Levenshtein)",
-                        icon=ft.icons.SCIENCE,
-                        on_click=handlers.test_algorithms,
-                        style=ft.ButtonStyle(
-                            bgcolor=ft.Colors.GREEN_600, color=ft.Colors.WHITE)
-                    )
-                ]),
-                bgcolor=ft.Colors.GREEN_50,
-                border_radius=10,
-                padding=15,
-                margin=ft.margin.only(bottom=15)
+                # Algorithm Test Section
+                ft.Container(
+                    content=ft.Column([
+                        ft.Text("Algorithm Test", size=18,
+                                weight=ft.FontWeight.BOLD),
+                        ft.ElevatedButton(
+                            "Test Your Algorithms (KMP, Boyer-Moore, Levenshtein)",
+                            icon=ft.icons.SCIENCE,
+                            on_click=handlers.test_algorithms,
+                            style=ft.ButtonStyle(
+                                bgcolor=ft.Colors.GREEN_600, color=ft.Colors.WHITE)
+                        )
+                    ]),
+                    bgcolor=ft.Colors.GREEN_50,
+                    border_radius=10,
+                    padding=15,
+                    margin=ft.margin.only(bottom=15)
+                ),
+                ])
             ),
 
             # Search Test Section
             ft.Container(
                 content=ft.Column([
-                    ft.Text("🔍 Search Test", size=18,
+                    ft.Text("Search Test", size=18,
                             weight=ft.FontWeight.BOLD),
 
                     # Keywords input
@@ -125,7 +124,7 @@ def main(page: ft.Page):
             # Results Section
             ft.Container(
                 content=ft.Column([
-                    ft.Text("📊 Results", size=18, weight=ft.FontWeight.BOLD),
+                    ft.Text("Results", size=18, weight=ft.FontWeight.BOLD),
                     ft.Container(
                         content=ft.Column([
                             components['results_text']

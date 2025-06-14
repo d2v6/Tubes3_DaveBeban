@@ -13,7 +13,7 @@ load_dotenv()
 
 def create_database():
     """Create the cv_ats database"""
-    print("🗄️ SETTING UP CV ATS DATABASE")
+    print("SETTING UP CV ATS DATABASE")
     print("=" * 50)
     
     try:
@@ -44,17 +44,11 @@ def create_database():
             create_table_query = """
             CREATE TABLE IF NOT EXISTS applicant_profiles (
                 applicant_id INT AUTO_INCREMENT PRIMARY KEY,
-                first_name VARCHAR(255),
-                last_name VARCHAR(255),
-                email VARCHAR(255),
-                phone_number VARCHAR(50),
-                address TEXT,
+                first_name VARCHAR(50),
+                last_name VARCHAR(50),
                 date_of_birth DATE,
-                education TEXT,
-                experience TEXT,
-                skills TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                address VARCHAR(255),
+                phone_number VARCHAR(20)
             )
             """
             
@@ -64,31 +58,22 @@ def create_database():
             # Create application_details table  
             create_app_table_query = """
             CREATE TABLE IF NOT EXISTS application_details (
-                application_id INT AUTO_INCREMENT PRIMARY KEY,
+                detail_id INT AUTO_INCREMENT PRIMARY KEY,
+                application_role VARCHAR(100),
                 applicant_id INT,
-                job_title VARCHAR(255),
-                job_description TEXT,
-                application_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                status VARCHAR(50) DEFAULT 'pending',
+                cv_path TEXT,
                 FOREIGN KEY (applicant_id) REFERENCES applicant_profiles(applicant_id)
             )
             """
             
             cursor.execute(create_app_table_query)
             print("✅ Table 'application_details' created/verified")
-            
-            # Show tables
-            cursor.execute("SHOW TABLES")
-            tables = cursor.fetchall()
-            print("\n📋 Available tables:")
-            for table in tables:
-                print(f"   📄 {table[0]}")
                 
             connection.commit()
             cursor.close()
             connection.close()
             
-            print("\n🎉 Database setup completed successfully!")
+            print("✅ Database setup completed successfully!")
             return True
             
     except Error as e:
@@ -98,63 +83,13 @@ def create_database():
         print(f"❌ Setup Error: {e}")
         return False
 
-def test_database_setup():
-    """Test that the database setup worked"""
-    print("\n🧪 TESTING DATABASE SETUP")
-    print("=" * 50)
-    
-    try:
-        connection = mysql.connector.connect(
-            host=os.getenv('DB_HOST', 'localhost'),
-            user=os.getenv('DB_USER', 'root'),
-            password=os.getenv('DB_PASSWORD', ''),
-            database=os.getenv('DB_NAME', 'cv_ats'),
-            port=int(os.getenv('DB_PORT', 3306))
-        )
-        
-        if connection.is_connected():
-            cursor = connection.cursor(dictionary=True)
-            print("✅ Connected to cv_ats database")
-            
-            # Test insert
-            test_query = """
-            INSERT INTO applicant_profiles (first_name, last_name, email)
-            VALUES ('Test', 'User', 'test@example.com')
-            """
-            cursor.execute(test_query)
-            test_id = cursor.lastrowid
-            
-            # Test select
-            cursor.execute("SELECT * FROM applicant_profiles WHERE applicant_id = %s", (test_id,))
-            result = cursor.fetchone()
-            
-            if result:
-                print(f"✅ Test record created: {result['first_name']} {result['last_name']}")
-                
-                # Clean up
-                cursor.execute("DELETE FROM applicant_profiles WHERE applicant_id = %s", (test_id,))
-                connection.commit()
-                print("✅ Test record cleaned up")
-            
-            cursor.close()
-            connection.close()
-            return True
-            
-    except Error as e:
-        print(f"❌ Test failed: {e}")
-        return False
-
 def main():
     """Run database setup"""
     success = create_database()
     if success:
-        success = test_database_setup()
-    
-    if success:
-        print("\n🏆 DATABASE SETUP COMPLETE!")
-        print("✅ You can now run encryption tests with database integration.")
+        print("✅ Success")
     else:
-        print("\n⚠️ Database setup had issues. Check MySQL connection settings.")
+        print("❌ Failed")
     
     return success
 
