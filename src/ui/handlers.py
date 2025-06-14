@@ -25,7 +25,7 @@ class UIHandlers:
         self.keywords_input = None
         self.algorithm_radio = None
         self.top_matches_input = None
-        self.results_text = None
+        self.results_container = None  # Changed from results_text to results_container
         self.status_text = None
         self.progress_ring = None
 
@@ -53,13 +53,17 @@ class UIHandlers:
                 ft.Radio(value="bm", label="Boyer-Moore"),
             ]),
             value="kmp"
-        )
-
-        # Results display
-        self.results_text = ft.Text(
-            "Results will appear here...",
-            size=12,
-            selectable=True
+        )        # Results display container
+        self.results_container = ft.Column(
+            controls=[
+                ft.Text(
+                    "Results will appear here...",
+                    size=14,
+                    color=ft.Colors.GREY_600
+                )
+            ],
+            spacing=10,
+            scroll=ft.ScrollMode.AUTO
         )
 
         # Status and progress
@@ -69,7 +73,7 @@ class UIHandlers:
             'keywords_input': self.keywords_input,
             'algorithm_radio': self.algorithm_radio,
             'top_matches_input': self.top_matches_input,
-            'results_text': self.results_text,
+            'results_container': self.results_container,  # Changed from results_text
             'status_text': self.status_text,
             'progress_ring': self.progress_ring
         }
@@ -87,27 +91,66 @@ class UIHandlers:
 
                 self.status_text.value = f"✅ Connected! Found {stats['total_cvs']} CVs"
                 self.status_text.color = ft.Colors.GREEN
+                stats_card = ft.Container(
+                    content=ft.Column([
+                        ft.Text("DATABASE STATISTICS", size=16,
+                                weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
+                        ft.Divider(),
+                        ft.Row([
+                            ft.Column([
+                                ft.Text("Total CVs", size=12,
+                                        weight=ft.FontWeight.BOLD),
+                                ft.Text(str(stats['total_cvs']),
+                                        size=20, color=ft.Colors.BLUE_600)
+                            ]),
+                            ft.Column([
+                                ft.Text("Total Roles", size=12,
+                                        weight=ft.FontWeight.BOLD),
+                                ft.Text(str(stats['total_roles']),
+                                        size=20, color=ft.Colors.GREEN_600)
+                            ])
+                        ], alignment=ft.MainAxisAlignment.SPACE_AROUND),
+                        ft.Text("Role Breakdown:", size=14,
+                                weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_700),
+                        ft.Column([
+                            ft.Text(f"• {role}: {count} CVs", size=12)
+                            # Show top 10
+                            for role, count in list(stats['role_breakdown'].items())[:10]
+                        ])
+                    ], spacing=10),
+                    bgcolor=ft.Colors.BLUE_50,
+                    border_radius=10,
+                    padding=15,
+                    border=ft.border.all(2, ft.Colors.BLUE_300)
+                )
 
-                # Show stats in results
-                result_text = f"DATABASE STATISTICS:\n"
-                result_text += f"Total CVs: {stats['total_cvs']}\n"
-                result_text += f"Total Roles: {stats['total_roles']}\n\n"
-                result_text += "Role Breakdown:\n"
-                for role, count in stats['role_breakdown'].items():
-                    result_text += f"  • {role}: {count} CVs\n"
-
-                self.results_text.value = result_text
+                self.results_container.controls = [stats_card]
             else:
                 self.status_text.value = "❌ Database connection failed"
                 self.status_text.color = ft.Colors.RED
-                self.results_text.value = "Could not connect to database. Check your connection settings."
+                error_card = ft.Container(
+                    content=ft.Text("Could not connect to database. Check your connection settings.",
+                                    size=14, color=ft.Colors.RED_700),
+                    bgcolor=ft.Colors.RED_50,
+                    border_radius=10,
+                    padding=15,
+                    border=ft.border.all(2, ft.Colors.RED_300)
+                )
+                self.results_container.controls = [error_card]
 
             self.page.update()
-
         except Exception as e:
             self.status_text.value = f"❌ Error: {str(e)}"
             self.status_text.color = ft.Colors.RED
-            self.results_text.value = f"Database test error: {str(e)}"
+            error_card = ft.Container(
+                content=ft.Text(f"Database test error: {str(e)}",
+                                size=14, color=ft.Colors.RED_700),
+                bgcolor=ft.Colors.RED_50,
+                border_radius=10,
+                padding=15,
+                border=ft.border.all(2, ft.Colors.RED_300)
+            )
+            self.results_container.controls = [error_card]
             self.page.update()
 
     def search_cvs(self, e=None):
@@ -156,41 +199,86 @@ class UIHandlers:
 
             self.repo.disconnect()
 
-            # Display results
-            result_text = f"SEARCH RESULTS for '{keywords}' using {algorithm.upper()}:\n\n"
-            result_text += f"Search Time: {search_time:.3f} seconds\n"
-            result_text += f"Top Matches Requested: {top_matches}\n"
-            result_text += f"Results Found: {len(results)}\n\n"
+            # Create search summary card
+            summary_card = ft.Container(
+                content=ft.Column([
+                    ft.Text(f"SEARCH RESULTS for '{keywords}'", size=16,
+                            weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_700),
+                    ft.Row([
+                        ft.Column([
+                            ft.Text("Algorithm", size=12,
+                                    weight=ft.FontWeight.BOLD),
+                            ft.Text(algorithm.upper(), size=14,
+                                    color=ft.Colors.BLUE_600)
+                        ]),
+                        ft.Column([
+                            ft.Text("Search Time", size=12,
+                                    weight=ft.FontWeight.BOLD),
+                            ft.Text(f"{search_time:.3f}s", size=14,
+                                    color=ft.Colors.GREEN_600)
+                        ]),
+                        ft.Column([
+                            ft.Text("Requested", size=12,
+                                    weight=ft.FontWeight.BOLD),
+                            ft.Text(str(top_matches), size=14,
+                                    color=ft.Colors.PURPLE_600)
+                        ]),
+                        ft.Column([
+                            ft.Text("Found", size=12,
+                                    weight=ft.FontWeight.BOLD),
+                            ft.Text(str(len(results)), size=14,
+                                    color=ft.Colors.ORANGE_600)
+                        ])
+                    ], alignment=ft.MainAxisAlignment.SPACE_AROUND)
+                ], spacing=10),
+                bgcolor=ft.Colors.ORANGE_50,
+                border_radius=10,
+                padding=15,
+                border=ft.border.all(2, ft.Colors.ORANGE_300),
+                margin=ft.margin.only(bottom=15)
+            )
+
+            # Create result cards
+            result_cards = [summary_card]
 
             if results:
                 for i, result in enumerate(results, 1):
-                    profile = result.applicant_profile
-                    app = result.application_detail
-                    score = getattr(result, 'similarity_score', 0)
-                    match_type = getattr(result, 'match_type', 'exact')
-                    matched_kw = getattr(result, 'matched_keywords', [])
-
-                    result_text += f"{i}. {profile.full_name}\n"
-                    result_text += f"   Role: {app.application_role}\n"
-                    result_text += f"   Score: {score:.3f} ({match_type})\n"
-
-                    # Handle tuple format (keyword, count)
-                    if matched_kw and isinstance(matched_kw[0], tuple):
-                        matches_display = [
-                            f"{kw}({count})" for kw, count in matched_kw]
-                        result_text += f"   Matched: {', '.join(matches_display)}\n"
-                    else:
-                        # Fallback for old format
-                        result_text += f"   Matched: {', '.join(str(kw) for kw in matched_kw)}\n"
+                    result_card = self.create_result_card(result, i)
+                    result_cards.append(result_card)
             else:
-                result_text += "No matches found.\n"
+                no_results_card = ft.Container(
+                    content=ft.Column([
+                        ft.Icon(ft.icons.SEARCH_OFF, size=48,
+                                color=ft.Colors.GREY_400),
+                        ft.Text("No matches found", size=16,
+                                weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600),
+                        ft.Text("Try different keywords or algorithms",
+                                size=12, color=ft.Colors.GREY_500)
+                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10),
+                    bgcolor=ft.Colors.GREY_50,
+                    border_radius=10,
+                    padding=30,
+                    border=ft.border.all(2, ft.Colors.GREY_300)
+                )
+                result_cards.append(no_results_card)
 
-            self.results_text.value = result_text
+            self.results_container.controls = result_cards
             self.status_text.value = f"✅ Search completed: {len(results)} results"
             self.status_text.color = ft.Colors.GREEN
-
         except Exception as e:
-            self.results_text.value = f"Search error: {str(e)}"
+            error_card = ft.Container(
+                content=ft.Column([
+                    ft.Icon(ft.icons.ERROR, size=48, color=ft.Colors.RED_400),
+                    ft.Text("Search Error", size=16,
+                            weight=ft.FontWeight.BOLD, color=ft.Colors.RED_700),
+                    ft.Text(str(e), size=12, color=ft.Colors.RED_600)
+                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10),
+                bgcolor=ft.Colors.RED_50,
+                border_radius=10,
+                padding=30,
+                border=ft.border.all(2, ft.Colors.RED_300)
+            )
+            self.results_container.controls = [error_card]
             self.status_text.value = f"❌ Search failed: {str(e)}"
             self.status_text.color = ft.Colors.RED
 
@@ -199,9 +287,118 @@ class UIHandlers:
             self.page.update()
 
     def clear_results(self, e=None):
-        self.results_text.value = "Results cleared."
+        self.results_container.controls = [
+            ft.Text(
+                "Results cleared. Ready for new search.",
+                size=14,
+                color=ft.Colors.GREY_600
+            )
+        ]
         self.keywords_input.value = ""
         self.top_matches_input.value = "10"
         self.status_text.value = "Ready"
         self.status_text.color = ft.Colors.GREEN
         self.page.update()
+
+    def create_result_card(self, result, index: int) -> ft.Container:
+        """Create a card component for a single CV search result"""
+        profile = result.applicant_profile
+        app = result.application_detail
+        score = getattr(result, 'similarity_score', 0)
+        match_type = getattr(result, 'match_type', 'exact')
+        matched_kw = getattr(result, 'matched_keywords', [])
+
+        # Handle tuple format (keyword, count)
+        if matched_kw and isinstance(matched_kw[0], tuple):
+            matches_display = [f"{kw}({count})" for kw, count in matched_kw]
+            matches_text = ', '.join(matches_display)
+        else:
+            # Fallback for old format
+            matches_text = ', '.join(str(kw) for kw in matched_kw)
+
+        # Color coding based on score
+        if score >= 0.8:
+            card_color = ft.Colors.GREEN_50
+            border_color = ft.Colors.GREEN_400
+            score_color = ft.Colors.GREEN_700
+        elif score >= 0.5:
+            card_color = ft.Colors.ORANGE_50
+            border_color = ft.Colors.ORANGE_400
+            score_color = ft.Colors.ORANGE_700
+        else:
+            card_color = ft.Colors.RED_50
+            border_color = ft.Colors.RED_400
+            score_color = ft.Colors.RED_700
+
+        return ft.Container(
+            content=ft.Column([
+                # Header row with name and score
+                ft.Row([
+                    ft.Column([
+                        ft.Text(
+                            f"{index}. {profile.full_name}",
+                            size=16,
+                            weight=ft.FontWeight.BOLD,
+                            color=ft.Colors.BLUE_800
+                        ),
+                        ft.Text(
+                            app.application_role,
+                            size=14,
+                            color=ft.Colors.GREY_700
+                        )
+                    ], expand=True),
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text(
+                                f"{score:.3f}",
+                                size=18,
+                                weight=ft.FontWeight.BOLD,
+                                color=score_color
+                            ),
+                            ft.Text(
+                                match_type.upper(),
+                                size=10,
+                                color=ft.Colors.GREY_600
+                            )
+                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                        padding=10
+                    )
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+
+                # Matched keywords section
+                ft.Container(
+                    content=ft.Column([
+                        ft.Text(
+                            "Matched Keywords:",
+                            size=12,
+                            weight=ft.FontWeight.BOLD,
+                            color=ft.Colors.GREY_700
+                        ),
+                        ft.Text(
+                            matches_text if matches_text else "No matches",
+                            size=12,
+                            color=ft.Colors.BLUE_600,
+                            selectable=True
+                        )
+                    ]),
+                    padding=ft.padding.only(top=5)
+                ),
+
+                # Contact info (expandable)
+                ft.ExpansionTile(
+                    title=ft.Text("Contact Information", size=12),
+                    controls=[
+                        ft.Text(f"📧 ID: {profile.applicant_id}", size=11),
+                        ft.Text(f"📍 Address: {profile.address}", size=11),
+                        ft.Text(f"📞 Phone: {profile.phone_number}", size=11),
+                        ft.Text(f"🎂 DOB: {profile.date_of_birth}", size=11),
+                    ],
+                    initially_expanded=False
+                )
+            ], spacing=8),
+            bgcolor=card_color,
+            border=ft.border.all(2, border_color),
+            border_radius=10,
+            padding=15,
+            margin=ft.margin.only(bottom=10)
+        )

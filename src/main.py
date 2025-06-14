@@ -8,8 +8,9 @@ def main(page: ft.Page):
     page.title = "CV ATS - Algorithm & Database Test"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 20
-    page.window_width = 900
-    page.window_height = 700
+    page.window_width = 1000  # Increased width for better card display
+    page.window_height = 800  # Increased height
+    page.scroll = ft.ScrollMode.AUTO  # Make the entire page scrollable
 
     # Initialize handlers
     handlers = UIHandlers(page)
@@ -67,13 +68,15 @@ def main(page: ft.Page):
                     ft.Row([
                         # Algorithm selection
                         ft.Column([
-                            ft.Text("Algorithm:", weight=ft.FontWeight.BOLD, size=14),
+                            ft.Text("Algorithm:",
+                                    weight=ft.FontWeight.BOLD, size=14),
                             components['algorithm_radio']
                         ]),
-                        
+
                         # Top matches input
                         ft.Column([
-                            ft.Text("Top Matches:", weight=ft.FontWeight.BOLD, size=14),
+                            ft.Text("Top Matches:",
+                                    weight=ft.FontWeight.BOLD, size=14),
                             components['top_matches_input']
                         ])
                     ], spacing=20),
@@ -117,19 +120,19 @@ def main(page: ft.Page):
                 content=ft.Column([
                     ft.Text("Results", size=18, weight=ft.FontWeight.BOLD),
                     ft.Container(
-                        content=ft.Column([
-                            components['results_text']
-                        ], scroll=ft.ScrollMode.AUTO),
+                        content=components['results_container'],
                         bgcolor=ft.Colors.GREY_50,
                         border_radius=5,
                         padding=15,
-                        height=250
+                        height=400,
+                        expand=True
                     )
                 ]),
-                margin=ft.margin.only(top=10)
+                margin=ft.margin.only(top=10),
+                expand=True
             )
 
-        ], spacing=0, scroll=ft.ScrollMode.AUTO)
+        ], spacing=10, scroll=ft.ScrollMode.AUTO, expand=True)
     )
 
 
