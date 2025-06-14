@@ -25,7 +25,18 @@ class UIHandlers:
     def __init__(self, page: ft.Page):
         """Initialize UI handlers with page reference"""
         self.page = page
-        self.repo = CVRepository()
+
+        # Initialize repositories - try encrypted first, fallback to regular
+        try:
+            from database.encrypted_repository import EncryptedCVRepository
+            self.repo = EncryptedCVRepository()
+            self.encryption_enabled = True
+            print("🔐 Using encrypted repository")
+        except ImportError:
+            from database.repository import CVRepository
+            self.repo = CVRepository()
+            self.encryption_enabled = False
+            print("📝 Using standard repository")
 
         # Initialize other attributes
         self.keywords_input = None

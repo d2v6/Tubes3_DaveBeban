@@ -340,47 +340,166 @@ class CVRepository:
             return 0.0, []
 
     # =============================================================================
-    # 🎯 UTILITY METHODS
+    # 📊 APPLICANT MANAGEMENT OPERATIONS
     # =============================================================================
-
-    def test_algorithms(self, text: str, pattern: str) -> Dict[str, Any]:
-        """🧪 TEST: Test your algorithms with sample data"""
+    
+    def create_applicant(self, profile: ApplicantProfile) -> Optional[int]:
+        """Create new applicant profile"""
         try:
-            print(f"🧪 Testing algorithms with text length: {len(text)}, pattern: '{pattern}'")
+            query = """
+            INSERT INTO ApplicantProfile 
+            (first_name, last_name, email, phone_number, address, date_of_birth)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """
             
-            results = {}
+            params = (
+                profile.first_name,
+                profile.last_name,
+                profile.email,
+                profile.phone_number,
+                profile.address,
+                profile.date_of_birth
+            )
             
-            # Test KMP
-            start_time = time.time()
-            kmp_matches = self.string_matcher.kmp_search(text, pattern)
-            kmp_time = time.time() - start_time
-            results['kmp'] = {'matches': len(kmp_matches), 'time': kmp_time, 'positions': kmp_matches[:10]}
+            applicant_id = self.db.execute_insert(query, params)
             
-            # Test Boyer-Moore
-            start_time = time.time()
-            bm_matches = self.string_matcher.boyer_moore_search(text, pattern)
-            bm_time = time.time() - start_time
-            results['bm'] = {'matches': len(bm_matches), 'time': bm_time, 'positions': bm_matches[:10]}
+            if applicant_id:
+                print(f"✅ Created applicant {applicant_id}: {profile.full_name}")
             
-            # Test Levenshtein (with sample words)
-            words = text.split()[:100]  # First 100 words
-            similarities = []
-            start_time = time.time()
-            for word in words:
-                if len(word) >= 3:
-                    sim = self.string_matcher.calculate_similarity(pattern, word)
-                    if sim > 70:  # Only high similarities
-                        similarities.append((word, sim))
-            levenshtein_time = time.time() - start_time
-            
-            results['levenshtein'] = {
-                'high_similarities': len(similarities),
-                'time': levenshtein_time,
-                'top_matches': sorted(similarities, key=lambda x: x[1], reverse=True)[:5]
-            }
-            
-            return results
+            return applicant_id
             
         except Exception as e:
-            print(f"❌ Error testing algorithms: {e}")
-            return {}
+            print(f"❌ Error creating applicant: {e}")
+            return None
+    
+    def create_application(self, application: ApplicationDetail) -> Optional[int]:
+        """Create application detail"""
+        try:
+            query = """
+            INSERT INTO ApplicationDetail 
+            (applicant_id, application_role, cv_path, applied_date, status)
+            VALUES (%s, %s, %s, %s, %s)
+            """
+            
+            params = (
+                application.applicant_id,
+                application.application_role,
+                application.cv_path,
+                application.applied_date,
+                application.status or 'active'
+            )
+            
+            return self.db.execute_insert(query, params)
+            
+        except Exception as e:
+            print(f"❌ Error creating application: {e}")
+            return None
+    
+    def get_cv_summary_statistics(self) -> Dict[str, Any]:
+        """Get CV summary statistics"""
+        try:
+            # Total CVs
+            total_query = "SELECT COUNT(*) as total FROM ApplicationDetail WHERE status = 'active'"
+            total_result = self.db.execute_query(total_query)
+            total_cvs = total_result[0]['total'] if total_result else 0
+            
+            # Role breakdown
+            role_query = """
+            SELECT application_role, COUNT(*) as count_per_role
+            FROM ApplicationDetail 
+            WHERE status = 'active'
+            GROUP BY application_role
+            ORDER BY count_per_role DESC
+            """
+            
+            role_results = self.db.execute_query(role_query)
+            role_breakdown = {row['application_role']: row['count_per_role'] for row in role_results} if role_results else {}
+            
+            return {
+                'total_cvs': total_cvs,
+                'total_roles': len(role_breakdown),
+                'role_breakdown': role_breakdown
+            }
+            
+        except Exception as e:
+            print(f"❌ Error getting statistics: {e}")
+            return {'total_cvs': 0, 'total_roles': 0, 'role_breakdown': {}}
+    
+    def scan_cv_files_in_data_folder(self) -> List[Dict[str, str]]:
+        """Scan for CV files in the data/cvs folder"""
+        try:
+            cv_files = []
+            
+            if not os.path.exists(self.cvs_folder):
+                print(f"📁 CVs folder not found: {self.cvs_folder}")
+                return cv_files
+            
+            # Scan for PDF files
+            for root, dirs, files in os.walk(self.cvs_folder):
+                for file in files:
+                    if file.lower().endswith('.pdf'):
+                        full_path = os.path.join(root, file)
+                        relative_path = os.path.relpath(full_path, self.project_root)
+                        
+                        # Determine role from folder structure
+                        rel_to_cvs = os.path.relpath(full_path, self.cvs_folder)
+                        role_parts = os.path.dirname(rel_to_cvs).split(os.sep)
+                        role = role_parts[0] if role_parts and role_parts[0] != '.' else 'General'
+                        
+                        cv_files.append({
+                            'filename': file,
+                            'full_path': full_path,
+                            'relative_path': relative_path,
+                            'role': role,
+                            'cv_path': relative_path
+                        })
+            
+            print(f"📂 Found {len(cv_files)} CV files")
+            return cv_files
+            
+        except Exception as e:
+            print(f"❌ Error scanning CV files: {e}")
+            return []
+    
+    def _load_cv_text_from_file(self, file_path: str) -> str:
+        """Load CV text from file path"""
+        try:
+            full_path = os.path.join(self.project_root, file_path)
+            if os.path.exists(full_path):
+                return self.pdf_parser.parse_pdf(full_path)
+            else:
+                print(f"⚠️ CV file not found: {full_path}")
+                return ""
+        except Exception as e:
+            print(f"⚠️ Error loading CV text from {file_path}: {e}")
+            return ""
+    
+    def clear_all_data(self):
+        """Clear all data from database (for testing)"""
+        try:
+            print("🗑️ Clearing all data...")
+            self.db.execute_update("DELETE FROM ApplicationDetail")
+            self.db.execute_update("DELETE FROM ApplicantProfile")
+            print("✅ All data cleared")
+        except Exception as e:
+            print(f"❌ Error clearing data: {e}")
+
+    # =============================================================================
+    # 🔧 INITIALIZATION AND SETUP
+    # =============================================================================
+    
+    def initialize_cv_extractor(self):
+        """Initialize CV extractor if not already done"""
+        try:
+            if not hasattr(self, 'cv_extractor'):
+                from ..utils.cv_extractor import CVExtractor
+                self.cv_extractor = CVExtractor()
+                print("🔧 CV Extractor initialized")
+        except ImportError:
+            try:
+                from utils.cv_extractor import CVExtractor
+                self.cv_extractor = CVExtractor()
+                print("🔧 CV Extractor initialized")
+            except ImportError as e:
+                print(f"⚠️ Could not initialize CV Extractor: {e}")
+                self.cv_extractor = None

@@ -184,3 +184,44 @@ class UIComponents:
             padding=15,
             margin=ft.margin.only(bottom=15)
         )
+    
+    @staticmethod
+    def create_encryption_status_section(encryption_enabled=False, on_manage_encryption=None):
+        """Create encryption status section"""
+        if encryption_enabled:
+            status_color = ft.colors.GREEN_50
+            status_icon = ft.icons.SECURITY
+            status_text = "🔒 Encryption Active"
+            status_desc = "Personal data is automatically encrypted in the database"
+            button_text = "Manage Encryption"
+        else:
+            status_color = ft.colors.ORANGE_50
+            status_icon = ft.icons.SECURITY_UPDATE_WARNING
+            status_text = "📝 Standard Mode"
+            status_desc = "Data stored in plaintext (demo mode)"
+            button_text = "Enable Encryption"
+        
+        return ft.Container(
+            content=ft.Column([
+                ft.Row([
+                    ft.Icon(status_icon, color=ft.colors.BLUE_700),
+                    ft.Text(status_text, weight=ft.FontWeight.BOLD, size=14),
+                    ft.Spacer(),
+                    ft.ElevatedButton(
+                        button_text,
+                        icon=ft.icons.SETTINGS,
+                        on_click=on_manage_encryption,
+                        scale=0.9
+                    ) if on_manage_encryption else ft.Container()
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                ft.Text(
+                    status_desc,
+                    color=ft.colors.GREY_700,
+                    size=12
+                )
+            ], spacing=4),
+            bgcolor=status_color,
+            padding=ft.padding.all(12),
+            border_radius=8,
+            margin=ft.margin.only(bottom=10)
+        )
