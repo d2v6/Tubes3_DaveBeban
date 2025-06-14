@@ -40,9 +40,9 @@ def create_database():
             cursor.execute(f"USE {database_name}")
             print(f"✅ Switched to database '{database_name}'")
             
-            # Create applicant_profiles table
+            # Create ApplicantProfile table
             create_table_query = """
-            CREATE TABLE IF NOT EXISTS applicant_profiles (
+            CREATE TABLE IF NOT EXISTS ApplicantProfile (
                 applicant_id INT AUTO_INCREMENT PRIMARY KEY,
                 first_name VARCHAR(50),
                 last_name VARCHAR(50),
@@ -53,21 +53,21 @@ def create_database():
             """
             
             cursor.execute(create_table_query)
-            print("✅ Table 'applicant_profiles' created/verified")
+            print("✅ Table 'ApplicantProfile' created/verified")
             
-            # Create application_details table  
+            # Create ApplicationDetail table  
             create_app_table_query = """
-            CREATE TABLE IF NOT EXISTS application_details (
+            CREATE TABLE IF NOT EXISTS ApplicationDetail (
                 detail_id INT AUTO_INCREMENT PRIMARY KEY,
                 application_role VARCHAR(100),
                 applicant_id INT,
                 cv_path TEXT,
-                FOREIGN KEY (applicant_id) REFERENCES applicant_profiles(applicant_id)
+                FOREIGN KEY (applicant_id) REFERENCES ApplicantProfile(applicant_id)
             )
             """
             
             cursor.execute(create_app_table_query)
-            print("✅ Table 'application_details' created/verified")
+            print("✅ Table 'ApplicationDetail' created/verified")
                 
             connection.commit()
             cursor.close()
