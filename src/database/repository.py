@@ -221,30 +221,46 @@ class CVRepository:
             print(f"⚠️ Error in exact match calculation: {e}")
             return 0
 
+
     def _find_fuzzy(self, cv_text: str, keyword: str, threshold: float = 0.95) -> List[tuple[str, int]]:
         """Find fuzzy matches of keyword in CV text and return list of (word, count) pairs"""
         try:
             keyword_counts = {}
-            cv_words = cv_text.lower().split()
             keyword_lower = keyword.lower()
-
-            for word in cv_words:
-                similarity = self.string_matcher.calculate_similarity(
-                    keyword_lower, word)/100
-
-                if similarity >= threshold:
-                    if word in keyword_counts:
-                        keyword_counts[word] += 1
-                    else:
-                        keyword_counts[word] = 1
-
-            matched_keywords = [(word, count)
-                                for word, count in keyword_counts.items()]
-            # for value in matched_keywords:
-            #     print(f"Fuzzy match found: {value[0]} with count {value[1]}")
-
+            cv_text_lower = cv_text.lower()
+            
+            if ' ' in keyword_lower:
+                keyword_words = keyword_lower.split()
+                keyword_length = len(keyword_words)
+                cv_words = cv_text_lower.split()
+                
+                for i in range(len(cv_words) - keyword_length + 1):
+                    window = ' '.join(cv_words[i:i + keyword_length])
+                    
+                    similarity = self.string_matcher.calculate_similarity(
+                        keyword_lower, window) / 100
+                    
+                    if similarity >= threshold:
+                        if window in keyword_counts:
+                            keyword_counts[window] += 1
+                        else:
+                            keyword_counts[window] = 1
+            else:
+                cv_words = cv_text_lower.split()
+                
+                for word in cv_words:
+                    similarity = self.string_matcher.calculate_similarity(
+                        keyword_lower, word) / 100
+                    
+                    if similarity >= threshold:
+                        if word in keyword_counts:
+                            keyword_counts[word] += 1
+                        else:
+                            keyword_counts[word] = 1
+            
+            matched_keywords = [(word, count) for word, count in keyword_counts.items()]
             return matched_keywords
-
+            
         except Exception as e:
             print(f"⚠️ Error in fuzzy match calculation: {e}")
             return []
