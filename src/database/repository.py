@@ -96,11 +96,10 @@ class CVRepository:
             print(f"❌ Error getting statistics: {e}")
             return {'total_cvs': 0, 'total_roles': 0, 'role_breakdown': {}}
 
-    def search_cvs_by_keywords(self, keywords: str, algorithm: str = "kmp", top_matches: int = 10, similarity_threshold: float = 0.95) -> List[CVSearchResult]:
+    def search_cvs_by_keywords(self, keywords: str, algorithm: str = "kmp", top_matches: int = 10) -> List[CVSearchResult]:
         """🔍 SEARCH: Main search function using your algorithms"""
         try:
-            print(
-                f"Starting search with keywords: '{keywords}' using {algorithm.upper()}")
+            print(f"Starting search with keywords: '{keywords}' using {algorithm.upper()}")
 
             if (not self.loaded_cvs):
                 print("Loading CVs from database...")
@@ -112,13 +111,26 @@ class CVRepository:
 
             print(f"Found {len(all_cvs)} CVs to search")
 
-            keyword_list = [kw.strip().lower()
-                            for kw in keywords.split(',') if kw.strip()]
+            keyword_list = [kw.strip().lower() for kw in keywords.split(',') if kw.strip()]
             if not keyword_list:
                 print("❌ No valid keywords provided!")
                 return []
 
             print(f"Searching for keywords: {keyword_list}")
+
+            thresholds = {}
+            for keyword in keyword_list:
+                term_length = len(keyword)
+                if term_length <= 3:
+                    thresholds[keyword] = 1.0
+                elif term_length <= 5:
+                    thresholds[keyword] = 0.95
+                elif term_length <= 8:
+                    thresholds[keyword] = 0.85
+                elif term_length <= 12:
+                    thresholds[keyword] = 0.8
+                else:
+                    thresholds[keyword] = 0.7
 
             search_results = []
             search_times = {'exact': 0, 'fuzzy': 0}
@@ -128,29 +140,38 @@ class CVRepository:
                     if not cv_result.cv_text or len(cv_result.cv_text.strip()) < 10:
                         continue
 
-                    # Create a new CVSearchResult with matched keywords
                     matched_keywords = []
+                    remaining_keywords = keyword_list.copy() 
 
-                    for keyword in keyword_list:
+                    if algorithm == "aho":
                         exact_start = time.time()
-                        exact_matches = self._find_exact(
-                            cv_result.cv_text, keyword, algorithm)
+                        aho_results = self.string_matcher.aho_corasick_search(cv_result.cv_text, keyword_list)
+                        search_times['exact'] += time.time() - exact_start
+                        if aho_results:
+                            keywords_found_by_aho = []
+                            for keyword, positions in aho_results.items():
+                                match_count = len(positions) if positions else 0
+                                if match_count > 0:
+                                    matched_keywords.append((keyword, match_count))
+                                    keywords_found_by_aho.append(keyword)
+                            remaining_keywords = [kw for kw in remaining_keywords if kw not in keywords_found_by_aho]
+
+                    for keyword in remaining_keywords:
+                        exact_start = time.time()
+                        exact_matches = self._find_exact(cv_result.cv_text, keyword, algorithm)
                         search_times['exact'] += time.time() - exact_start
 
                         if exact_matches > 0:
                             matched_keywords.append((keyword, exact_matches))
-                            # print(
-                            #     f"Exact match found for '{keyword}' in CV {i}: {exact_matches} occurrences")
+                            # print(f"Exact match found for '{keyword}' in CV {i}: {exact_matches} occurrences")
                         else:
                             fuzzy_start = time.time()
-                            fuzzy_matches = self._find_fuzzy(
-                                cv_result.cv_text, keyword, similarity_threshold)
+                            fuzzy_matches = self._find_fuzzy(cv_result.cv_text, keyword, thresholds[keyword])
                             search_times['fuzzy'] += time.time() - fuzzy_start
 
                             if fuzzy_matches:
                                 matched_keywords.extend(fuzzy_matches)
-                                # print(
-                                #     f"Fuzzy match found for '{keyword}' in CV {i}: {len(fuzzy_matches)} occurrences")
+                                # print(f"Fuzzy match found for '{keyword}' in CV {i}: {len(fuzzy_matches)} occurrences")
 
                     if matched_keywords:
                         cv_result.matched_keywords = matched_keywords
@@ -160,13 +181,10 @@ class CVRepository:
                     print(f"❌ Error processing CV {i}: {e}")
                     continue
 
-            search_results.sort(
-                key=lambda x: sum(count for _, count in x.matched_keywords), reverse=True)
-
+            search_results.sort(key=lambda x: sum(count for _, count in x.matched_keywords), reverse=True)
             top_results = search_results[:top_matches]
 
-            # print(
-            #     f"Timing - Exact: {search_times['exact']:.3f}s, Fuzzy: {search_times['fuzzy']:.3f}s")
+            # print(f"Timing - Exact: {search_times['exact']:.3f}s, Fuzzy: {search_times['fuzzy']:.3f}s")
 
             for result in top_results:
                 result.search_timing = search_times
@@ -191,6 +209,8 @@ class CVRepository:
                 matches = self.string_matcher.boyer_moore_search(
                     cv_text_lower, keyword_lower)
                 return len(matches) if isinstance(matches, list) else matches
+            elif algorithm == "aho":
+                return 0
             else:
                 import re
                 matches = len(re.findall(

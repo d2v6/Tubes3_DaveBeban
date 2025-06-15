@@ -49,7 +49,7 @@ class UIHandlers:
             content=ft.Row([
                 ft.Radio(value="kmp", label="KMP"),
                 ft.Radio(value="bm", label="Boyer-Moore"),
-                # ft.Radio(value="aho", label="Aho–Corasick"),
+                ft.Radio(value="aho", label="Aho–Corasick"),
             ]),
             value="kmp"
         )
@@ -190,7 +190,6 @@ class UIHandlers:
                 keywords=keywords,
                 algorithm=algorithm,
                 top_matches=top_matches,
-                similarity_threshold=0.7
             )
             search_time = time.time() - search_start
             self.repo.disconnect()
