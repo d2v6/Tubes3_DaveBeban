@@ -1,5 +1,15 @@
 import flet as ft
-from ui.handlers import UIHandlers
+import sys
+import os
+
+# Add project root to Python path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# Now use absolute imports
+from src.ui.handlers import UIHandlers
+from src.ui.components import UIComponents  # Add this import
 
 
 def main(page: ft.Page):
@@ -115,23 +125,22 @@ def main(page: ft.Page):
                 padding=10
             ),
 
-            # Results Section
-            ft.Container(
-                content=ft.Column([
-                    ft.Text("Results", size=18, weight=ft.FontWeight.BOLD),
-                    ft.Container(
-                        content=components['results_container'],
-                        bgcolor=ft.Colors.GREY_50,
-                        border_radius=5,
-                        padding=15,
-                        height=400,
-                        expand=True
-                    )
-                ]),
-                margin=ft.margin.only(top=10),
-                expand=True
-            )
+            # CV Summary Section (NEW) - Fixed syntax error
+            UIComponents.create_summary_section(
+                ft.Container(
+                    content=ft.Text("CV summaries will appear here when you click on search results", 
+                                   size=12, color=ft.Colors.GREY_500, italic=True),
+                    padding=20,
+                    alignment=ft.alignment.center
+                )
+            ),
 
+            # Results Section - Fixed syntax error
+            UIComponents.create_results_section(
+                components['progress_ring'],
+                components['status_text'],
+                components['results_container']
+            )
         ], spacing=10, scroll=ft.ScrollMode.AUTO, expand=True)
     )
 

@@ -83,8 +83,20 @@ class UIComponents:
     def create_summary_section(summary_container):
         """Create summary result section - REQUIRED BY SPEC"""
         return ft.Column([
-            ft.Text("3. Summary Result Section",
-                    size=18, weight=ft.FontWeight.BOLD),
+            ft.Container(
+                content=ft.Column([
+                    ft.Text("3. CV Summary Viewer",
+                            size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.PURPLE_700),
+                    ft.Text("Click on any search result to view detailed CV summary",
+                            size=12, color=ft.Colors.GREY_600),
+                    ft.Text("💡 Summary includes: Personal info, Skills, Experience, Education",
+                            size=11, color=ft.Colors.PURPLE_600),
+                ]),
+                bgcolor=ft.Colors.PURPLE_50,
+                border_radius=10,
+                padding=15,
+                border=ft.border.all(1, ft.Colors.PURPLE_200)
+            ),
             summary_container,
             ft.Divider(),
         ])

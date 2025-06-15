@@ -209,6 +209,49 @@ class CVExtractor:
         return ""
 
     @staticmethod
+    def extract_contact_info(text: str) -> Tuple[str, str, str, str]:
+        """
+        Extract contact information from CV text.
+        
+        Args:
+            text: Raw CV text content
+            
+        Returns:
+            Tuple containing (first_name, last_name, phone, address)
+        """
+        first_name = ""
+        last_name = ""
+        phone = ""
+        address = ""
+        
+        lines = text.split('\n')[:10]  # Check first 10 lines for contact info
+        
+        # Extract name (usually in first few lines)
+        for line in lines:
+            line = line.strip()
+            if line and not any(keyword in line.lower() for keyword in ['phone', 'email', 'address', 'cv', 'resume']):
+                # Simple name extraction - split by spaces
+                words = line.split()
+                if 2 <= len(words) <= 4:  # Reasonable name length
+                    first_name = words[0].title()
+                    last_name = " ".join(words[1:]).title()
+                    break
+        
+        # Extract phone number
+        phone_pattern = r'(\+?\d{1,3}[-.\s]?)?\(?\d{3,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}'
+        phone_match = re.search(phone_pattern, text)
+        if phone_match:
+            phone = phone_match.group().strip()
+        
+        # Extract address (look for lines with common address keywords)
+        address_pattern = r'(?i)(.*(?:street|st|avenue|ave|road|rd|boulevard|blvd|lane|ln|drive|dr|city|state|zip|jakarta|bandung|surabaya|medan|semarang).*)'
+        address_match = re.search(address_pattern, text)
+        if address_match:
+            address = address_match.group(1).strip()
+        
+        return first_name, last_name, phone, address
+
+    @staticmethod
     def extract_full_summary(text: str) -> CVSummary:
         """
         Extract all CV information and return as CVSummary object.

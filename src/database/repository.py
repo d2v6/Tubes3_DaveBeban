@@ -1,17 +1,20 @@
-from algorithms.string_matcher import StringMatcher
-from models.database_models import ApplicantProfile, ApplicationDetail, CVSearchResult
-from utils.pdf_parser import PDFParser
-from pathlib import Path
-from typing import List, Dict, Any, Optional
-from .connection import DatabaseConnection
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import sys
 import os
 import time
+from pathlib import Path
+from typing import List, Dict, Any, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Add project root to Python path
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
-# Now you can import normally
+# Use absolute imports
+from src.algorithms.string_matcher import StringMatcher
+from src.models.database_models import ApplicantProfile, ApplicationDetail, CVSearchResult
+from src.utils.pdf_parser import PDFParser
+from src.database.connection import DatabaseConnection
 
 
 class CVRepository:

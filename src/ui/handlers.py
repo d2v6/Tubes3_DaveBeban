@@ -1,18 +1,17 @@
-from utils.cv_extractor import CVExtractor, CVSummary
-from utils.pdf_parser import PDFParser
 import flet as ft
 import os
 import sys
 import time
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add project root to Python path
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
-
-# Replace relative import with absolute
-try:
-    from database.repository import CVRepository
-except ImportError:
-    from src.database.repository import CVRepository
+# Use absolute imports
+from src.utils.cv_extractor import CVExtractor, CVSummary
+from src.utils.pdf_parser import PDFParser
+from src.database.repository import CVRepository
 
 
 class UIHandlers:
@@ -300,105 +299,295 @@ class UIHandlers:
         self.status_text.color = ft.Colors.GREEN
         self.page.update()
 
-    def create_result_card(self, result, index: int) -> ft.Container:
-        """Create a card component for a single CV search result"""
-        profile = result.applicant_profile
-        app = result.application_detail
-        score = getattr(result, 'similarity_score', 0)
-        match_type = getattr(result, 'match_type', 'exact')
-        matched_kw = getattr(result, 'matched_keywords', [])
-
-        # Handle tuple format (keyword, count)
-        if matched_kw and isinstance(matched_kw[0], tuple):
-            matches_display = [f"{kw}({count})" for kw, count in matched_kw]
-            matches_text = ', '.join(matches_display)
-        else:
-            # Fallback for old format
-            matches_text = ', '.join(str(kw) for kw in matched_kw)
-
-        # Color coding based on score
-        if score >= 0.8:
-            card_color = ft.Colors.GREEN_50
-            border_color = ft.Colors.GREEN_400
-            score_color = ft.Colors.GREEN_700
-        elif score >= 0.5:
-            card_color = ft.Colors.ORANGE_50
-            border_color = ft.Colors.ORANGE_400
-            score_color = ft.Colors.ORANGE_700
-        else:
-            card_color = ft.Colors.RED_50
-            border_color = ft.Colors.RED_400
-            score_color = ft.Colors.RED_700
-
-        return ft.Container(
+    def create_result_card(self, result, index):
+        """Create a result card with click handler for CV summary"""
+        
+        def on_card_click(e):
+            """Handle card click to show CV summary"""
+            self.show_cv_summary(result, index)
+        
+        # Create clickable result card
+        result_card = ft.Container(
             content=ft.Column([
-                # Header row with name and score
                 ft.Row([
+                    ft.CircleAvatar(
+                        content=ft.Text(f"{index}", color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
+                        bgcolor=ft.Colors.BLUE_600,
+                        radius=20
+                    ),
                     ft.Column([
-                        ft.Text(
-                            f"{index}. {profile.full_name}",
-                            size=16,
-                            weight=ft.FontWeight.BOLD,
-                            color=ft.Colors.BLUE_800
-                        ),
-                        ft.Text(
-                            app.application_role,
-                            size=14,
-                            color=ft.Colors.GREY_700
-                        )
-                    ], expand=True),
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Text(
-                                f"{score:.3f}",
-                                size=18,
-                                weight=ft.FontWeight.BOLD,
-                                color=score_color
-                            ),
-                            ft.Text(
-                                match_type.upper(),
-                                size=10,
-                                color=ft.Colors.GREY_600
-                            )
-                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                        padding=10
-                    )
+                        ft.Text(result.applicant_profile.full_name,
+                                size=16, weight=ft.FontWeight.BOLD),
+                        ft.Text(f"Role: {result.application_detail.application_role}",
+                                size=12, color=ft.Colors.GREY_600),
+                        ft.Text(f"Score: {result.similarity_score:.3f} | Matches: {getattr(result, 'number_of_matches', 'N/A')}",
+                                size=12, color=ft.Colors.GREEN_600),
+                    ], expand=True, spacing=2),
+                    ft.Column([
+                        ft.Icon(ft.icons.VISIBILITY, color=ft.Colors.BLUE_600, size=20),
+                        ft.Text("Click to view", size=10, color=ft.Colors.BLUE_600)
+                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-
-                # Matched keywords section
+                
+                # Matched keywords
                 ft.Container(
                     content=ft.Column([
-                        ft.Text(
-                            "Matched Keywords:",
-                            size=12,
-                            weight=ft.FontWeight.BOLD,
-                            color=ft.Colors.GREY_700
-                        ),
-                        ft.Text(
-                            matches_text if matches_text else "No matches",
-                            size=12,
-                            color=ft.Colors.BLUE_600,
-                            selectable=True
-                        )
+                        ft.Text("Matched Keywords:", size=12, weight=ft.FontWeight.BOLD),
+                        ft.Row([
+                            ft.Container(
+                                content=ft.Text(
+                                    f"{kw[0]} ({kw[1]})" if isinstance(kw, tuple) else str(kw),
+                                    size=10, color=ft.Colors.WHITE
+                                ),
+                                bgcolor=ft.Colors.ORANGE_600,
+                                padding=ft.padding.symmetric(horizontal=6, vertical=2),
+                                border_radius=10,
+                                margin=ft.margin.all(1)
+                            ) for kw in (result.matched_keywords[:5] if result.matched_keywords else [])
+                        ])
                     ]),
-                    padding=ft.padding.only(top=5)
-                ),
-
-                # Contact info (expandable)
-                ft.ExpansionTile(
-                    title=ft.Text("Contact Information", size=12),
-                    controls=[
-                        ft.Text(f"📧 ID: {profile.applicant_id}", size=11),
-                        ft.Text(f"📍 Address: {profile.address}", size=11),
-                        ft.Text(f"📞 Phone: {profile.phone_number}", size=11),
-                        ft.Text(f"🎂 DOB: {profile.date_of_birth}", size=11),
-                    ],
-                    initially_expanded=False
+                    margin=ft.margin.only(top=10)
                 )
-            ], spacing=8),
-            bgcolor=card_color,
-            border=ft.border.all(2, border_color),
+            ], spacing=5),
+            bgcolor=ft.Colors.WHITE,
             border_radius=10,
             padding=15,
-            margin=ft.margin.only(bottom=10)
+            margin=ft.margin.only(bottom=10),
+            border=ft.border.all(2, ft.Colors.BLUE_200),
+            ink=True,  # Add ripple effect
+            on_click=on_card_click,  # Add click handler
         )
+        
+        return result_card
+
+    def show_cv_summary(self, cv_result, result_index):
+        """Show CV summary dialog when result is clicked"""
+        from utils.cv_extractor import CVExtractor
+        
+        def close_summary_dialog(e):
+            self.page.dialog.open = False
+            self.page.update()
+        
+        def show_full_cv(e):
+            """Show full CV text in a dialog"""
+            full_cv_dialog = ft.AlertDialog(
+                modal=True,
+                title=ft.Text(f"Full CV - {cv_result.applicant_profile.full_name}", 
+                             size=18, weight=ft.FontWeight.BOLD),
+                content=ft.Container(
+                    content=ft.Column([
+                        ft.Text(cv_result.cv_text, 
+                               size=12, 
+                               selectable=True,
+                               overflow=ft.TextOverflow.FADE),
+                    ], 
+                    scroll=ft.ScrollMode.AUTO,
+                    height=500),
+                    width=800,
+                    height=500
+                ),
+                actions=[
+                    ft.TextButton("Close", on_click=close_summary_dialog)
+                ],
+                actions_alignment=ft.MainAxisAlignment.END,
+            )
+            
+            self.page.dialog = full_cv_dialog
+            full_cv_dialog.open = True
+            self.page.update()
+        
+        # Extract CV summary using CVExtractor
+        cv_summary = CVExtractor.extract_full_summary(cv_result.cv_text)
+        
+        # Create summary dialog content
+        summary_content = ft.Column([
+            # Header with applicant info
+            ft.Container(
+                content=ft.Column([
+                    ft.Text("CV Summary", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                    ft.Text(f"Match Score: {cv_result.similarity_score:.3f}", 
+                           size=14, color=ft.Colors.WHITE70),
+                ]),
+                bgcolor=ft.Colors.BLUE_700,
+                padding=15,
+                border_radius=ft.BorderRadius(10, 10, 0, 0),
+                margin=ft.margin.only(bottom=10)
+            ),
+            
+            # Personal Information Section
+            ft.Container(
+                content=ft.Column([
+                    ft.Text("Personal Information", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
+                    ft.Divider(height=1, color=ft.Colors.BLUE_200),
+                    ft.Row([
+                        ft.Column([
+                            ft.Text("Name:", weight=ft.FontWeight.BOLD, size=12),
+                            ft.Text(cv_result.applicant_profile.full_name, size=14),
+                        ], expand=1),
+                        ft.Column([
+                            ft.Text("Phone:", weight=ft.FontWeight.BOLD, size=12),
+                            ft.Text(cv_summary.phone or cv_result.applicant_profile.phone_number or "Not available", size=14),
+                        ], expand=1),
+                    ]),
+                    ft.Row([
+                        ft.Column([
+                            ft.Text("Address:", weight=ft.FontWeight.BOLD, size=12),
+                            ft.Text(cv_summary.address or cv_result.applicant_profile.address or "Not available", 
+                                   size=14, overflow=ft.TextOverflow.ELLIPSIS),
+                        ], expand=1),
+                        ft.Column([
+                            ft.Text("Role Applied:", weight=ft.FontWeight.BOLD, size=12),
+                            ft.Text(cv_result.application_detail.application_role, size=14),
+                        ], expand=1),
+                    ]),
+                ]),
+                bgcolor=ft.Colors.BLUE_50,
+                padding=15,
+                border_radius=10,
+                margin=ft.margin.only(bottom=10)
+            ),
+            
+            # Professional Summary Section
+            ft.Container(
+                content=ft.Column([
+                    ft.Text("Professional Summary", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700),
+                    ft.Divider(height=1, color=ft.Colors.GREEN_200),
+                    ft.Text(cv_summary.summary or "No summary available", 
+                           size=14, overflow=ft.TextOverflow.FADE),
+                ]),
+                bgcolor=ft.Colors.GREEN_50,
+                padding=15,
+                border_radius=10,
+                margin=ft.margin.only(bottom=10)
+            ),
+            
+            # Skills Section
+            ft.Container(
+                content=ft.Column([
+                    ft.Text("Skills", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.PURPLE_700),
+                    ft.Divider(height=1, color=ft.Colors.PURPLE_200),
+                    ft.Column([
+                        ft.Row([
+                            ft.Container(
+                                content=ft.Text(skill, size=12, color=ft.Colors.WHITE),
+                                bgcolor=ft.Colors.PURPLE_600,
+                                padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                                border_radius=15,
+                                margin=ft.margin.all(2)
+                            ) for skill in cv_summary.skills[i:i+3]  # Group skills in rows of 3
+                        ]) for i in range(0, min(len(cv_summary.skills), 9), 3)  # Max 3 rows of 3 skills
+                    ] if cv_summary.skills else [ft.Text("No skills extracted", size=14, color=ft.Colors.GREY_600)]),
+                ]),
+                bgcolor=ft.Colors.PURPLE_50,
+                padding=15,
+                border_radius=10,
+                margin=ft.margin.only(bottom=10)
+            ),
+            
+            # Experience Section
+            ft.Container(
+                content=ft.Column([
+                    ft.Text("Work Experience", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_700),
+                    ft.Divider(height=1, color=ft.Colors.ORANGE_200),
+                    ft.Column([
+                        ft.Container(
+                            content=ft.Column([
+                                ft.Text(f"{exp['start_date']} - {exp['end_date']}", 
+                                       size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_800),
+                                ft.Text(exp['position'], size=14),
+                            ]),
+                            bgcolor=ft.Colors.WHITE,
+                            padding=10,
+                            border_radius=8,
+                            border=ft.border.all(1, ft.Colors.ORANGE_200),
+                            margin=ft.margin.only(bottom=5)
+                        ) for exp in cv_summary.experience[:3]  # Show max 3 experiences
+                    ] if cv_summary.experience else [ft.Text("No experience extracted", size=14, color=ft.Colors.GREY_600)]),
+                ]),
+                bgcolor=ft.Colors.ORANGE_50,
+                padding=15,
+                border_radius=10,
+                margin=ft.margin.only(bottom=10)
+            ),
+            
+            # Education Section
+            ft.Container(
+                content=ft.Column([
+                    ft.Text("Education", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.CYAN_700),
+                    ft.Divider(height=1, color=ft.Colors.CYAN_200),
+                    ft.Column([
+                        ft.Container(
+                            content=ft.Column([
+                                ft.Text(edu['year'], size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.CYAN_800),
+                                ft.Text(edu['degree'], size=14),
+                            ]),
+                            bgcolor=ft.Colors.WHITE,
+                            padding=10,
+                            border_radius=8,
+                            border=ft.border.all(1, ft.Colors.CYAN_200),
+                            margin=ft.margin.only(bottom=5)
+                        ) for edu in cv_summary.education
+                    ] if cv_summary.education else [ft.Text("No education extracted", size=14, color=ft.Colors.GREY_600)]),
+                ]),
+                bgcolor=ft.Colors.CYAN_50,
+                padding=15,
+                border_radius=10,
+                margin=ft.margin.only(bottom=15)
+            ),
+            
+            # Matched Keywords Section
+            ft.Container(
+                content=ft.Column([
+                    ft.Text("Matched Keywords", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.RED_700),
+                    ft.Divider(height=1, color=ft.Colors.RED_200),
+                    ft.Column([
+                        ft.Row([
+                            ft.Container(
+                                content=ft.Text(f"{keyword[0]} ({keyword[1]})" if isinstance(keyword, tuple) else str(keyword), 
+                                               size=12, color=ft.Colors.WHITE),
+                                bgcolor=ft.Colors.RED_600,
+                                padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                                border_radius=15,
+                                margin=ft.margin.all(2)
+                            ) for keyword in cv_result.matched_keywords[i:i+2]  # Group keywords in rows of 2
+                        ]) for i in range(0, min(len(cv_result.matched_keywords), 8), 2)  # Max 4 rows of 2 keywords
+                    ] if cv_result.matched_keywords else [ft.Text("No keywords matched", size=14, color=ft.Colors.GREY_600)]),
+                ]),
+                bgcolor=ft.Colors.RED_50,
+                padding=15,
+                border_radius=10,
+            ),
+        ], scroll=ft.ScrollMode.AUTO)
+        
+        # Create summary dialog
+        summary_dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Row([
+                ft.Text(f"CV Summary - {cv_result.applicant_profile.full_name}", 
+                       size=18, weight=ft.FontWeight.BOLD),
+                ft.IconButton(
+                    icon=ft.icons.CLOSE,
+                    on_click=close_summary_dialog,
+                    tooltip="Close"
+                )
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            content=ft.Container(
+                content=summary_content,
+                width=700,
+                height=600
+            ),
+            actions=[
+                ft.ElevatedButton(
+                    "View Full CV",
+                    icon=ft.icons.DESCRIPTION,
+                    on_click=show_full_cv,
+                    style=ft.ButtonStyle(bgcolor=ft.Colors.BLUE_600, color=ft.Colors.WHITE)
+                ),
+                ft.TextButton("Close", on_click=close_summary_dialog)
+            ],
+            actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        )
+        
+        self.page.dialog = summary_dialog
+        summary_dialog.open = True
+        self.page.update()
