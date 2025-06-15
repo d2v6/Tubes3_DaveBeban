@@ -437,8 +437,53 @@ class UIHandlers:
             full_cv_dialog.open = True
             self.page.update()
 
+        def view_original_pdf(e):
+            """Open the original PDF file"""
+            try:
+                import os
+                import subprocess
+                import platform
+                from pathlib import Path
+
+                # Get the CV path from the application detail
+                cv_path = cv_result.application_detail.cv_path
+                if not cv_path:
+                    self.show_error_dialog("PDF file path not available")
+                    return
+
+                # Construct the full file path
+                clean_path = cv_path.strip('/\\')
+                project_root = Path(__file__).parent.parent.parent
+                full_pdf_path = str(project_root / clean_path)
+
+                # Check if file exists
+                if not os.path.exists(full_pdf_path):
+                    self.show_error_dialog(f"PDF file not found: {full_pdf_path}")
+                    return
+
+                # Open PDF with default system viewer
+                system = platform.system()
+                try:
+                    if system == "Windows":
+                        os.startfile(full_pdf_path)
+                    elif system == "Darwin":  # macOS
+                        subprocess.run(["open", full_pdf_path])
+                    elif system == "Linux":
+                        subprocess.run(["xdg-open", full_pdf_path])
+                    else:
+                        self.show_error_dialog("Unsupported operating system")
+
+                    # Close the summary dialog after opening PDF
+                    close_summary_dialog(e)
+
+                except Exception as open_error:
+                    self.show_error_dialog(f"Failed to open PDF: {str(open_error)}")
+
+            except Exception as ex:
+                self.show_error_dialog(f"Error viewing PDF: {str(ex)}")
+
         # Extract CV summary using CVExtractor
-        cv_summary = CVExtractor.extract_full_summary(cv_result.cv_text)
+        cv_summary = CVExtractor.extract_full_summary(cv_result.cv_text, personal_info=cv_result.applicant_profile)
 
         # Create summary dialog content
         summary_content = ft.Column([
@@ -636,10 +681,16 @@ class UIHandlers:
                 content=summary_content,
                 width=700,
                 height=600
-            ),
-            actions=[
+            ),            actions=[
                 ft.ElevatedButton(
-                    "View Full CV",
+                    "View Original PDF",
+                    icon=ft.icons.PICTURE_AS_PDF,
+                    on_click=view_original_pdf,
+                    style=ft.ButtonStyle(
+                        bgcolor=ft.Colors.RED_600, color=ft.Colors.WHITE)
+                ),
+                ft.ElevatedButton(
+                    "View Full CV Text",
                     icon=ft.icons.DESCRIPTION,
                     on_click=show_full_cv,
                     style=ft.ButtonStyle(
@@ -652,4 +703,29 @@ class UIHandlers:
 
         self.page.dialog = summary_dialog
         summary_dialog.open = True
+        self.page.update()
+
+    def show_error_dialog(self, message):
+        """Show error dialog with the given message"""
+        def close_error_dialog(e):
+            self.page.dialog.open = False
+            self.page.update()
+
+        error_dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Row([
+                ft.Icon(ft.icons.ERROR, color=ft.Colors.RED_600),
+                ft.Text("Error", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.RED_600)
+            ]),
+            content=ft.Container(
+                content=ft.Text(message, size=14),
+                width=400
+            ),
+            actions=[
+                ft.TextButton("OK", on_click=close_error_dialog)
+            ],
+        )
+
+        self.page.dialog = error_dialog
+        error_dialog.open = True
         self.page.update()
