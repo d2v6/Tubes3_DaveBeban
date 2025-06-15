@@ -580,9 +580,7 @@ class UIHandlers:
                 padding=15,
                 border_radius=10,
                 margin=ft.margin.only(bottom=10)
-            ),
-
-            # Experience Section
+            ),            # Experience Section
             ft.Container(
                 content=ft.Column([
                     ft.Text("Work Experience", size=16,
@@ -591,9 +589,9 @@ class UIHandlers:
                     ft.Column([
                         ft.Container(
                             content=ft.Column([
-                                ft.Text(f"{exp['start_date']} - {exp['end_date']}",
+                                ft.Text(f"Experience {i+1}",
                                         size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_800),
-                                ft.Text(exp['position'], size=14),
+                                ft.Text(str(exp), size=14, selectable=True),
                             ]),
                             bgcolor=ft.Colors.WHITE,
                             padding=10,
@@ -601,16 +599,14 @@ class UIHandlers:
                             border=ft.border.all(1, ft.Colors.ORANGE_200),
                             margin=ft.margin.only(bottom=5)
                             # Show max 3 experiences
-                        ) for exp in cv_summary.experience[:3]
+                        ) for i, exp in enumerate(cv_summary.experience[:3])
                     ] if cv_summary.experience else [ft.Text("No experience extracted", size=14, color=ft.Colors.GREY_600)]),
                 ]),
                 bgcolor=ft.Colors.ORANGE_50,
                 padding=15,
                 border_radius=10,
                 margin=ft.margin.only(bottom=10)
-            ),
-
-            # Education Section
+            ),            # Education Section
             ft.Container(
                 content=ft.Column([
                     ft.Text("Education", size=16,
@@ -620,15 +616,15 @@ class UIHandlers:
                         ft.Container(
                             content=ft.Column([
                                 ft.Text(
-                                    edu['year'], size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.CYAN_800),
-                                ft.Text(edu['degree'], size=14),
+                                    f"Education {i+1}", size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.CYAN_800),
+                                ft.Text(str(edu), size=14, selectable=True),
                             ]),
                             bgcolor=ft.Colors.WHITE,
                             padding=10,
                             border_radius=8,
                             border=ft.border.all(1, ft.Colors.CYAN_200),
                             margin=ft.margin.only(bottom=5)
-                        ) for edu in cv_summary.education
+                        ) for i, edu in enumerate(cv_summary.education)
                     ] if cv_summary.education else [ft.Text("No education extracted", size=14, color=ft.Colors.GREY_600)]),
                 ]),
                 bgcolor=ft.Colors.CYAN_50,
