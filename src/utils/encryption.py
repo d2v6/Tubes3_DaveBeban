@@ -68,6 +68,8 @@ class Encryption:
             if not plaintext:
                 return "", b""
 
+            print(f"      Core encryption: '{plaintext}' -> ", end="")
+
             # Generate salt if not provided
             if salt is None:
                 salt = self._generate_salt()
@@ -87,6 +89,7 @@ class Encryption:
             # Encode to base64 for storage
             encoded = base64.b64encode(combined).decode('ascii')
 
+            print(f"'{encoded[:20]}...'")
             return encoded, salt
 
         except Exception as e:
@@ -159,32 +162,34 @@ class Encryption:
 
 
 class FieldEncryption:
-    """🏷️ Field-level encryption manager"""
-
     def __init__(self):
         self.encryptor = Encryption()
 
-        # Define which fields should be encrypted
         self.encrypted_fields = {
-            'first_name', 'last_name', 'email',
-            'phone_number', 'address', 'date_of_birth'
+            'first_name', 'last_name', 'date_of_birth', 'address',
+            'phone_number'
         }
 
     def encrypt_profile_data(self, profile_data: Dict[str, Any]) -> Dict[str, Any]:
-        """🔒 Encrypt sensitive profile fields"""
         encrypted_data = profile_data.copy()
+        print(f"🔒 FieldEncryption: Starting encryption for {len(self.encrypted_fields)} fields")
 
         for field in self.encrypted_fields:
             if field in encrypted_data and encrypted_data[field] is not None:
                 original_value = str(encrypted_data[field])
-                encrypted_value, _ = self.encryptor.encrypt_data(
-                    original_value)
+                print(f"   Encrypting {field}: '{original_value}' -> ", end="")
+                
+                encrypted_value, _ = self.encryptor.encrypt_data(original_value)
                 encrypted_data[field] = encrypted_value
+                
+                print(f"'{encrypted_value[:30]}...'")
+            else:
+                print(f"   Skipping {field}: not present or None")
 
+        print(f"✅ FieldEncryption: Completed encryption")
         return encrypted_data
 
     def decrypt_profile_data(self, encrypted_data: Dict[str, Any]) -> Dict[str, Any]:
-        """🔓 Decrypt sensitive profile fields"""
         decrypted_data = encrypted_data.copy()
 
         for field in self.encrypted_fields:
