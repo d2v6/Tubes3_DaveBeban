@@ -1,63 +1,124 @@
-import flet as ft
 from ui.components import UIComponents
 from ui.handlers import UIHandlers
+import flet as ft
+import sys
+import os
+
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 
 def main(page: ft.Page):
-    page.title = "CV Matching System - DaveBeban"
-    page.window.width = 1200
-    page.window.height = 800
+    page.title = "DAVEBEBAN CV ATS"
+    page.theme_mode = ft.ThemeMode.LIGHT
+    page.padding = 20
+    page.window_width = 1000
+    page.window_height = 800
     page.scroll = ft.ScrollMode.AUTO
-    
+
     # Initialize handlers
-    handlers = UIHandlers()
-    
-    # Create file picker
-    file_picker = handlers.create_file_picker(page)
-    
-    # Setup UI components
-    components = handlers.setup_ui_components()
-    
-    # Create main layout
+    handlers = UIHandlers(page)
+    components = handlers.create_components()
+
     page.add(
-        ft.Container(
-            content=ft.Column([
-                # Header
-                UIComponents.create_header(),
-                
-                # File selection section
-                UIComponents.create_file_selection_section(
-                    lambda e: handlers.pick_files(e, file_picker),
-                    components['selected_files_text']
-                ),
-                
-                # Search configuration section
-                UIComponents.create_search_configuration(
-                    components['algorithm_radio'],
+        ft.Column([
+            # Header
+            ft.Container(
+                content=ft.Column([
+                    ft.Text(
+                        "DAVEBEBAN CV ATS",
+                        size=24,
+                        weight=ft.FontWeight.BOLD,
+                        color=ft.Colors.BLUE_700
+                    ),
+                ]),
+                margin=ft.margin.only(bottom=20)
+            ),
+
+            ft.Container(
+                content=ft.Row([
+                    # Database Test Section
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text("Load CVs from Database",
+                                    size=18, weight=ft.FontWeight.BOLD),
+                            ft.ElevatedButton(
+                                "Load CVs",
+                                icon=ft.icons.STORAGE,
+                                on_click=handlers.test_database_connection_and_load,
+                                style=ft.ButtonStyle(
+                                    bgcolor=ft.Colors.BLUE_600, color=ft.Colors.WHITE)
+                            )
+                        ]),
+                        bgcolor=ft.Colors.BLUE_50,
+                        border_radius=10,
+                        padding=15,
+                        margin=ft.margin.only(bottom=15)
+                    ),
+                ])
+            ),
+
+            # Search Test Section
+            ft.Container(
+                content=ft.Column([
+                    ft.Text("Search Test", size=18,
+                            weight=ft.FontWeight.BOLD),
+
+                    # Keywords input
                     components['keywords_input'],
-                    components['similarity_text'],
-                    components['similarity_slider'],
-                    handlers.search_cvs,
-                    handlers.clear_all
-                ),
-                
-                # Results section
-                UIComponents.create_results_section(
-                    components['progress_ring'],
-                    components['status_text'],
-                    components['results_container']
-                ),
-                
-                # Content display section
-                UIComponents.create_content_display_section(
-                    components['full_text_container'],
-                    components['highlights_container']
-                )
-                
-            ], spacing=15),
-            padding=20,
-            expand=True
-        )
+
+                    # Search parameters row
+                    ft.Row([
+                        # Algorithm selection
+                        ft.Column([
+                            ft.Text("Algorithm:",
+                                    weight=ft.FontWeight.BOLD, size=14),
+                            components['algorithm_radio']
+                        ]),
+
+                        # Top matches input
+                        ft.Column([
+                            ft.Text("Top Matches:",
+                                    weight=ft.FontWeight.BOLD, size=14),
+                            components['top_matches_input']
+                        ])
+                    ], spacing=20),
+
+                    # Search buttons
+                    ft.Row([
+                        ft.ElevatedButton(
+                            "Search CVs",
+                            icon=ft.icons.SEARCH,
+                            on_click=handlers.search_cvs,
+                            style=ft.ButtonStyle(
+                                bgcolor=ft.Colors.ORANGE_600, color=ft.Colors.WHITE)
+                        ),
+                        ft.ElevatedButton(
+                            "Clear Results",
+                            icon=ft.icons.CLEAR,
+                            on_click=handlers.clear_results,
+                            style=ft.ButtonStyle(
+                                bgcolor=ft.Colors.RED_600, color=ft.Colors.WHITE)
+                        )
+                    ], spacing=10)
+                ]),
+                bgcolor=ft.Colors.ORANGE_50,
+                border_radius=10,
+                padding=15,
+                margin=ft.margin.only(bottom=15)
+            ),
+
+            # Results Section
+            UIComponents.create_results_section(
+                components['progress_ring'],
+                components['status_text'],
+                components['results_container']
+            )
+        ], spacing=10, scroll=ft.ScrollMode.AUTO, expand=True)
     )
 
+
+# Run the app
 if __name__ == "__main__":
-    ft.app(main)
+    ft.app(target=main)
