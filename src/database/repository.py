@@ -1,3 +1,10 @@
+from src.database.connection import DatabaseConnection
+from src.utils.pdf_parser import PDFParser
+from src.models.database_models import ApplicantProfile, ApplicationDetail, CVSearchResult
+from src.algorithms.string_matcher_unified import StringMatcher
+from src.algorithms.kmp_search import KMPSearch
+from src.algorithms.boyer_moore_search import BoyerMooreSearch
+from src.algorithms.levenshtein_distance import LevenshteinDistance
 import sys
 import os
 import time
@@ -5,16 +12,10 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Add project root to Python path
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+project_root = os.path.dirname(os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__))))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-
-# Use absolute imports
-from src.algorithms.string_matcher import StringMatcher
-from src.models.database_models import ApplicantProfile, ApplicationDetail, CVSearchResult
-from src.utils.pdf_parser import PDFParser
-from src.database.connection import DatabaseConnection
 
 
 class CVRepository:
@@ -25,12 +26,11 @@ class CVRepository:
         self.pdf_parser = PDFParser()
         self.string_matcher = StringMatcher()
 
-        # Project paths
         self.project_root = self._get_project_root()
         self.data_folder = os.path.join(self.project_root, "data")
         self.cvs_folder = os.path.join(self.data_folder, "cvs")
 
-        self.loaded_cvs = []  # Cache for loaded CVs
+        self.loaded_cvs = []
 
     def _get_project_root(self) -> str:
         """🔍 Find project root directory"""
@@ -45,10 +45,6 @@ class CVRepository:
         src_parent = os.path.dirname(
             os.path.dirname(os.path.abspath(__file__)))
         return src_parent
-
-    # =============================================================================
-    # 🔌 CONNECTION MANAGEMENT
-    # =============================================================================
 
     def connect(self) -> bool:
         """Connect to database"""
@@ -76,7 +72,7 @@ class CVRepository:
         try:
             query = """
             SELECT application_role, COUNT(*) as count_per_role
-            FROM ApplicationDetail 
+            FROM ApplicationDetail
             GROUP BY application_role
             ORDER BY count_per_role DESC
             """
@@ -100,13 +96,12 @@ class CVRepository:
             print(f"❌ Error getting statistics: {e}")
             return {'total_cvs': 0, 'total_roles': 0, 'role_breakdown': {}}
 
-    def search_cvs_by_keywords(self, keywords: str, algorithm: str = "kmp", top_matches: int = 10, similarity_threshold: float = 0.3) -> List[CVSearchResult]:
+    def search_cvs_by_keywords(self, keywords: str, algorithm: str = "kmp", top_matches: int = 10, similarity_threshold: float = 0.95) -> List[CVSearchResult]:
         """🔍 SEARCH: Main search function using your algorithms"""
         try:
             print(
                 f"Starting search with keywords: '{keywords}' using {algorithm.upper()}")
 
-            # Get all CVs
             if (not self.loaded_cvs):
                 print("Loading CVs from database...")
                 self.loaded_cvs = self.get_all_cvs()
@@ -117,7 +112,6 @@ class CVRepository:
 
             print(f"Found {len(all_cvs)} CVs to search")
 
-            # Prepare keywords (simple split for now)
             keyword_list = [kw.strip().lower()
                             for kw in keywords.split(',') if kw.strip()]
             if not keyword_list:
@@ -126,7 +120,6 @@ class CVRepository:
 
             print(f"Searching for keywords: {keyword_list}")
 
-            # Search results with timing
             search_results = []
             search_times = {'exact': 0, 'fuzzy': 0}
 
@@ -135,173 +128,114 @@ class CVRepository:
                     if not cv_result.cv_text or len(cv_result.cv_text.strip()) < 10:
                         continue
 
-                    # Exact match phase
-                    exact_start = time.time()
-                    exact_score, exact_matches, number_of_matches = self._calculate_exact_match_score(
-                        cv_result.cv_text, keyword_list, algorithm
-                    )
-                    search_times['exact'] += time.time() - exact_start
+                    # Create a new CVSearchResult with matched keywords
+                    matched_keywords = []
 
-                    # If exact match is good enough, use it
-                    if exact_score >= similarity_threshold:
-                        cv_result.similarity_score = exact_score
-                        cv_result.matched_keywords = exact_matches
-                        cv_result.number_of_matches = number_of_matches
-                        cv_result.match_type = "exact"
+                    for keyword in keyword_list:
+                        exact_start = time.time()
+                        exact_matches = self._find_exact(
+                            cv_result.cv_text, keyword, algorithm)
+                        search_times['exact'] += time.time() - exact_start
+
+                        if exact_matches > 0:
+                            matched_keywords.append((keyword, exact_matches))
+                            print(
+                                f"Exact match found for '{keyword}' in CV {i}: {exact_matches} occurrences")
+                        else:
+                            fuzzy_start = time.time()
+                            fuzzy_matches = self._find_fuzzy(
+                                cv_result.cv_text, keyword, similarity_threshold)
+                            search_times['fuzzy'] += time.time() - fuzzy_start
+
+                            if fuzzy_matches:
+                                matched_keywords.extend(fuzzy_matches)
+                                print(
+                                    f"Fuzzy match found for '{keyword}' in CV {i}: {len(fuzzy_matches)} occurrences")
+
+                    if matched_keywords:
+                        cv_result.matched_keywords = matched_keywords
                         search_results.append(cv_result)
-                        print(
-                            f"✅ EXACT {i}: {cv_result.applicant_profile.full_name} - Score: {exact_score:.3f}")
-                        continue
-
-                    # Fuzzy match phase (using your Levenshtein)
-                    fuzzy_start = time.time()
-                    fuzzy_score, fuzzy_matches = self._calculate_fuzzy_match_score(
-                        cv_result.cv_text, keyword_list, 0.7  # 70% similarity threshold
-                    )
-                    search_times['fuzzy'] += time.time() - fuzzy_start
-
-                    if fuzzy_score >= similarity_threshold:
-                        cv_result.similarity_score = fuzzy_score
-                        cv_result.matched_keywords = fuzzy_matches
-                        cv_result.number_of_matches = len(fuzzy_matches)
-                        cv_result.match_type = "fuzzy"
-                        search_results.append(cv_result)
-                        print(
-                            f"✅ FUZZY {i}: {cv_result.applicant_profile.full_name} - Score: {fuzzy_score:.3f}")
-
-                    cv_result.loaded_cv_index = i
 
                 except Exception as e:
                     print(f"❌ Error processing CV {i}: {e}")
                     continue
 
-            # Sort by similarity score
-            search_results.sort(key=lambda x: x.similarity_score, reverse=True)
+            search_results.sort(
+                key=lambda x: sum(count for _, count in x.matched_keywords), reverse=True)
 
-            # Return top matches with timing info
             top_results = search_results[:top_matches]
 
             print(
                 f"Timing - Exact: {search_times['exact']:.3f}s, Fuzzy: {search_times['fuzzy']:.3f}s")
 
-            # Store timing info for UI display
             for result in top_results:
                 result.search_timing = search_times
 
+            print(f"Found {len(top_results)} matching CVs")
             return top_results
 
         except Exception as e:
             print(f"❌ Error searching CVs: {e}")
             return []
 
-    def _calculate_exact_match_score(self, cv_text: str, keywords: List[str], algorithm: str) -> tuple:
-        """CALCULATE: Exact match score using your algorithms"""
+    def _find_exact(self, cv_text: str, keyword: str, algorithm: str) -> int:
         try:
             cv_text_lower = cv_text.lower()
-            keyword_counts = {}
-            total_matches = 0
+            keyword_lower = keyword.lower()
 
-            for keyword in keywords:
-                keyword_lower = keyword.lower()
-
-                # Use your algorithms
-                if algorithm == "kmp":
-                    matches = self.string_matcher.kmp_search(
-                        cv_text_lower, keyword_lower)
-                elif algorithm == "bm":
-                    matches = self.string_matcher.boyer_moore_search(
-                        cv_text_lower, keyword_lower)
-                else:  # regex or fallback
-                    import re
-                    matches = len(re.findall(
-                        re.escape(keyword_lower), cv_text_lower))
-                    matches = [0] if matches > 0 else []
-
-                if matches:
-                    match_count = len(matches)
-                    # If keyword already found before, add to existing count
-                    if keyword in keyword_counts:
-                        keyword_counts[keyword] += match_count
-                    else:
-                        # First time finding this keyword, set count to match_count
-                        keyword_counts[keyword] = match_count
-
-                    total_matches += match_count
-
-            # Convert dictionary to list of tuples
-            matched_keywords = [(keyword, count)
-                                for keyword, count in keyword_counts.items()]
-
-            # Calculate score
-            if len(keywords) > 0:
-                keyword_match_ratio = len(matched_keywords) / len(keywords)
-                frequency_bonus = min(total_matches * 0.1, 1.0)
-                score = keyword_match_ratio * 0.7 + frequency_bonus * 0.3
-                return score, matched_keywords, total_matches
-
-            return 0.0, [], 0
+            if algorithm == "kmp":
+                matches = self.string_matcher.kmp_search(
+                    cv_text_lower, keyword_lower)
+                return len(matches) if isinstance(matches, list) else matches
+            elif algorithm == "bm":
+                matches = self.string_matcher.boyer_moore_search(
+                    cv_text_lower, keyword_lower)
+                return len(matches) if isinstance(matches, list) else matches
+            else:
+                import re
+                matches = len(re.findall(
+                    re.escape(keyword_lower), cv_text_lower))
+                return matches
 
         except Exception as e:
             print(f"⚠️ Error in exact match calculation: {e}")
-            return 0.0, []
+            return 0
 
-    def _calculate_fuzzy_match_score(self, cv_text: str, keywords: List[str], threshold: float) -> tuple:
+    def _find_fuzzy(self, cv_text: str, keyword: str, threshold: float = 0.95) -> List[tuple[str, int]]:
+        """Find fuzzy matches of keyword in CV text and return list of (word, count) pairs"""
         try:
+            keyword_counts = {}
             cv_words = cv_text.lower().split()
-            keyword_counts = {}  # Dictionary to track keyword fuzzy matches
-            total_similarity = 0
+            keyword_lower = keyword.lower()
 
-            for keyword in keywords:
-                keyword_lower = keyword.lower()
-                best_similarity = 0
-                best_match = None
+            for word in cv_words:
+                similarity = self.string_matcher.calculate_similarity(
+                    keyword_lower, word)/100
 
-                for word in cv_words:
-                    if len(word) >= 3:  # Only check words with 3+ chars
-                        similarity = self.string_matcher.calculate_similarity(
-                            keyword_lower, word) / 100.0
-                        if similarity > best_similarity:
-                            best_similarity = similarity
-                            best_match = word
-
-                if best_similarity >= threshold:
-                    match_key = best_match
-                    if match_key in keyword_counts:
-                        keyword_counts[match_key] += 1
+                if similarity >= threshold:
+                    if word in keyword_counts:
+                        keyword_counts[word] += 1
                     else:
-                        keyword_counts[match_key] = 1
+                        keyword_counts[word] = 1
 
-                    total_similarity += best_similarity
+            matched_keywords = [(word, count)
+                                for word, count in keyword_counts.items()]
 
-            matched_keywords = [(match_key, count)
-                                for match_key, count in keyword_counts.items()]
-
-            # Calculate final score
-            if len(keywords) > 0:
-                keyword_match_ratio = len(matched_keywords) / len(keywords)
-                avg_similarity = total_similarity / \
-                    len(keywords) if matched_keywords else 0
-                score = keyword_match_ratio * 0.6 + avg_similarity * 0.4
-                return score, matched_keywords
-
-            return 0.0, []
+            return matched_keywords
 
         except Exception as e:
             print(f"⚠️ Error in fuzzy match calculation: {e}")
-            return 0.0, []
+            return []
 
     def get_cv_summary_statistics(self) -> Dict[str, Any]:
         """Get CV summary statistics"""
         try:
-            # Total CVs
             total_query = "SELECT COUNT(*) as total FROM ApplicationDetail"
             total_result = self.db.execute_query(total_query)
             total_cvs = total_result[0]['total'] if total_result else 0
-
-            # Role breakdown
             role_query = """
             SELECT application_role, COUNT(*) as count_per_role
-            FROM ApplicationDetail 
+            FROM ApplicationDetail
             GROUP BY application_role
             ORDER BY count_per_role DESC
             """
@@ -341,7 +275,6 @@ class CVRepository:
                 print(f"🔄 Loading {len(results)} CVs using multiprocessing...")
                 start_time = time.time()
 
-                # Prepare data for multiprocessing
                 cv_tasks = []
                 for row in results:
                     try:
@@ -360,15 +293,12 @@ class CVRepository:
                         print(f"⚠️ Error preparing CV data: {e}")
                         continue
 
-                # Use multiprocessing for PDF parsing
                 max_workers = min(mp.cpu_count(), len(cv_tasks))
 
                 with ProcessPoolExecutor(max_workers=max_workers) as executor:
-                    # Submit all tasks
                     futures = [executor.submit(
                         self._process_single_cv, task) for task in cv_tasks]
 
-                    # Collect results
                     completed_count = 0
                     for future in as_completed(futures):
                         try:
@@ -377,7 +307,6 @@ class CVRepository:
                                 cv_results.append(cv_result)
                             completed_count += 1
 
-                            # Progress indicator
                             if completed_count % 50 == 0 or completed_count == len(cv_tasks):
                                 print(
                                     f"📁 Processed {completed_count}/{len(cv_tasks)} CVs...")
@@ -393,7 +322,7 @@ class CVRepository:
                 print(
                     f"Average: {processing_time/len(cv_results):.3f}s per CV")
 
-            self.loaded_cvs = cv_results  # Cache loaded CVs
+            self.loaded_cvs = cv_results
             return cv_results
 
         except Exception as e:
@@ -411,7 +340,6 @@ class CVRepository:
             from models.database_models import ApplicantProfile, ApplicationDetail, CVSearchResult
             from pathlib import Path
 
-            # Create objects
             profile = ApplicantProfile(
                 applicant_id=task_data['applicant_id'],
                 first_name=task_data['first_name'],
@@ -429,10 +357,8 @@ class CVRepository:
                 applicant_profile=profile
             )
 
-            # Load CV content
             pdf_parser = PDFParser()
 
-            # Get file path (replicate the _get_cv_file_path logic)
             cv_path = task_data['cv_path']
             clean_path = cv_path.strip('/\\')
             project_root = Path(__file__).parent.parent.parent

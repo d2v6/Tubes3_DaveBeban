@@ -1,39 +1,33 @@
+from ui.components import UIComponents
+from ui.handlers import UIHandlers
 import flet as ft
 import sys
 import os
 
-# Add project root to Python path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# Now use absolute imports
-from src.ui.handlers import UIHandlers
-from src.ui.components import UIComponents  # Add this import
-
 
 def main(page: ft.Page):
-
-    # Configure page
-    page.title = "CV ATS - Algorithm & Database Test"
+    page.title = "DAVEBEBAN CV ATS"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 20
-    page.window_width = 1000  # Increased width for better card display
-    page.window_height = 800  # Increased height
-    page.scroll = ft.ScrollMode.AUTO  # Make the entire page scrollable
+    page.window_width = 1000
+    page.window_height = 800
+    page.scroll = ft.ScrollMode.AUTO
 
     # Initialize handlers
     handlers = UIHandlers(page)
     components = handlers.create_components()
 
-    # Create simple UI
     page.add(
         ft.Column([
             # Header
             ft.Container(
                 content=ft.Column([
                     ft.Text(
-                        "CV ATS",
+                        "DAVEBEBAN CV ATS",
                         size=24,
                         weight=ft.FontWeight.BOLD,
                         color=ft.Colors.BLUE_700
@@ -115,27 +109,7 @@ def main(page: ft.Page):
                 margin=ft.margin.only(bottom=15)
             ),
 
-            # Status Section
-            ft.Container(
-                content=ft.Row([
-                    ft.Text("Status:", weight=ft.FontWeight.BOLD),
-                    components['progress_ring'],
-                    components['status_text']
-                ], spacing=10),
-                padding=10
-            ),
-
-            # CV Summary Section (NEW) - Fixed syntax error
-            UIComponents.create_summary_section(
-                ft.Container(
-                    content=ft.Text("CV summaries will appear here when you click on search results", 
-                                   size=12, color=ft.Colors.GREY_500, italic=True),
-                    padding=20,
-                    alignment=ft.alignment.center
-                )
-            ),
-
-            # Results Section - Fixed syntax error
+            # Results Section
             UIComponents.create_results_section(
                 components['progress_ring'],
                 components['status_text'],

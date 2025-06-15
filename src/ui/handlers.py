@@ -1,17 +1,15 @@
+from src.database.repository import CVRepository
+from src.utils.pdf_parser import PDFParser
+from src.utils.cv_extractor import CVExtractor, CVSummary
 import flet as ft
 import os
 import sys
 import time
 
-# Add project root to Python path
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+project_root = os.path.dirname(os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__))))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-
-# Use absolute imports
-from src.utils.cv_extractor import CVExtractor, CVSummary
-from src.utils.pdf_parser import PDFParser
-from src.database.repository import CVRepository
 
 
 class UIHandlers:
@@ -24,12 +22,13 @@ class UIHandlers:
         self.keywords_input = None
         self.algorithm_radio = None
         self.top_matches_input = None
-        self.results_container = None  # Changed from results_text to results_container
+        self.results_container = None
         self.status_text = None
         self.progress_ring = None
 
     def create_components(self):
-        """Create  UI components"""        # Keywords input
+        """Create  UI components"""
+
         self.keywords_input = ft.TextField(
             label="Enter keywords (comma-separated)",
             hint_text="e.g., python, javascript, sql",
@@ -50,9 +49,10 @@ class UIHandlers:
             content=ft.Row([
                 ft.Radio(value="kmp", label="KMP"),
                 ft.Radio(value="bm", label="Boyer-Moore"),
+                # ft.Radio(value="aho", label="Aho–Corasick"),
             ]),
             value="kmp"
-        )        # Results display container
+        )
         self.results_container = ft.Column(
             controls=[
                 ft.Text(
@@ -72,7 +72,7 @@ class UIHandlers:
             'keywords_input': self.keywords_input,
             'algorithm_radio': self.algorithm_radio,
             'top_matches_input': self.top_matches_input,
-            'results_container': self.results_container,  # Changed from results_text
+            'results_container': self.results_container,
             'status_text': self.status_text,
             'progress_ring': self.progress_ring
         }
@@ -113,7 +113,6 @@ class UIHandlers:
                                 weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_700),
                         ft.Column([
                             ft.Text(f"• {role}: {count} CVs", size=12)
-                            # Show top 10
                             for role, count in list(stats['role_breakdown'].items())[:10]
                         ])
                     ], spacing=10),
@@ -186,49 +185,87 @@ class UIHandlers:
                 self.page.update()
                 return
 
-            # Perform search
             search_start = time.time()
             results = self.repo.search_cvs_by_keywords(
                 keywords=keywords,
                 algorithm=algorithm,
                 top_matches=top_matches,
-                similarity_threshold=0.3
+                similarity_threshold=0.95
             )
             search_time = time.time() - search_start
-
             self.repo.disconnect()
 
-            # Create search summary card
+            # Extract search timing information from results
+            search_timing = None
+            if results and hasattr(results[0], 'search_timing'):
+                search_timing = results[0].search_timing
+
+            # Create timing display
+            if search_timing:
+                timing_row = ft.Row([
+                    ft.Column([
+                        ft.Text("Algorithm", size=12,
+                                weight=ft.FontWeight.BOLD),
+                        ft.Text(algorithm.upper(), size=14,
+                                color=ft.Colors.BLUE_600)
+                    ]),
+                    ft.Column([
+                        ft.Text("Exact Search", size=12,
+                                weight=ft.FontWeight.BOLD),
+                        ft.Text(
+                            f"{search_timing['exact']:.3f}s", size=14, color=ft.Colors.GREEN_600)
+                    ]),
+                    ft.Column([
+                        ft.Text("Fuzzy Search", size=12,
+                                weight=ft.FontWeight.BOLD),
+                        ft.Text(
+                            f"{search_timing['fuzzy']:.3f}s", size=14, color=ft.Colors.ORANGE_600)
+                    ]),
+                    ft.Column([
+                        ft.Text("Total Time", size=12,
+                                weight=ft.FontWeight.BOLD),
+                        ft.Text(f"{search_time:.3f}s", size=14,
+                                color=ft.Colors.PURPLE_600)
+                    ]),
+                    ft.Column([
+                        ft.Text("Found", size=12, weight=ft.FontWeight.BOLD),
+                        ft.Text(str(len(results)), size=14,
+                                color=ft.Colors.RED_600)
+                    ])
+                ], alignment=ft.MainAxisAlignment.SPACE_AROUND)
+            else:
+                # Fallback to original timing display if search_timing not available
+                timing_row = ft.Row([
+                    ft.Column([
+                        ft.Text("Algorithm", size=12,
+                                weight=ft.FontWeight.BOLD),
+                        ft.Text(algorithm.upper(), size=14,
+                                color=ft.Colors.BLUE_600)
+                    ]),
+                    ft.Column([
+                        ft.Text("Search Time", size=12,
+                                weight=ft.FontWeight.BOLD),
+                        ft.Text(f"{search_time:.3f}s", size=14,
+                                color=ft.Colors.GREEN_600)
+                    ]),
+                    ft.Column([
+                        ft.Text("Requested", size=12,
+                                weight=ft.FontWeight.BOLD),
+                        ft.Text(str(top_matches), size=14,
+                                color=ft.Colors.PURPLE_600)
+                    ]),
+                    ft.Column([
+                        ft.Text("Found", size=12, weight=ft.FontWeight.BOLD),
+                        ft.Text(str(len(results)), size=14,
+                                color=ft.Colors.ORANGE_600)
+                    ])
+                ], alignment=ft.MainAxisAlignment.SPACE_AROUND)
+
             summary_card = ft.Container(
                 content=ft.Column([
                     ft.Text(f"SEARCH RESULTS for '{keywords}'", size=16,
                             weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_700),
-                    ft.Row([
-                        ft.Column([
-                            ft.Text("Algorithm", size=12,
-                                    weight=ft.FontWeight.BOLD),
-                            ft.Text(algorithm.upper(), size=14,
-                                    color=ft.Colors.BLUE_600)
-                        ]),
-                        ft.Column([
-                            ft.Text("Search Time", size=12,
-                                    weight=ft.FontWeight.BOLD),
-                            ft.Text(f"{search_time:.3f}s", size=14,
-                                    color=ft.Colors.GREEN_600)
-                        ]),
-                        ft.Column([
-                            ft.Text("Requested", size=12,
-                                    weight=ft.FontWeight.BOLD),
-                            ft.Text(str(top_matches), size=14,
-                                    color=ft.Colors.PURPLE_600)
-                        ]),
-                        ft.Column([
-                            ft.Text("Found", size=12,
-                                    weight=ft.FontWeight.BOLD),
-                            ft.Text(str(len(results)), size=14,
-                                    color=ft.Colors.ORANGE_600)
-                        ])
-                    ], alignment=ft.MainAxisAlignment.SPACE_AROUND)
+                    timing_row
                 ], spacing=10),
                 bgcolor=ft.Colors.ORANGE_50,
                 border_radius=10,
@@ -237,7 +274,6 @@ class UIHandlers:
                 margin=ft.margin.only(bottom=15)
             )
 
-            # Create result cards
             result_cards = [summary_card]
 
             if results:
@@ -301,17 +337,18 @@ class UIHandlers:
 
     def create_result_card(self, result, index):
         """Create a result card with click handler for CV summary"""
-        
+
         def on_card_click(e):
             """Handle card click to show CV summary"""
             self.show_cv_summary(result, index)
-        
+
         # Create clickable result card
         result_card = ft.Container(
             content=ft.Column([
                 ft.Row([
                     ft.CircleAvatar(
-                        content=ft.Text(f"{index}", color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
+                        content=ft.Text(
+                            f"{index}", color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
                         bgcolor=ft.Colors.BLUE_600,
                         radius=20
                     ),
@@ -320,27 +357,32 @@ class UIHandlers:
                                 size=16, weight=ft.FontWeight.BOLD),
                         ft.Text(f"Role: {result.application_detail.application_role}",
                                 size=12, color=ft.Colors.GREY_600),
-                        ft.Text(f"Score: {result.similarity_score:.3f} | Matches: {getattr(result, 'number_of_matches', 'N/A')}",
+                        ft.Text(f"Matches: {result.total_matches}",
                                 size=12, color=ft.Colors.GREEN_600),
                     ], expand=True, spacing=2),
                     ft.Column([
-                        ft.Icon(ft.icons.VISIBILITY, color=ft.Colors.BLUE_600, size=20),
-                        ft.Text("Click to view", size=10, color=ft.Colors.BLUE_600)
+                        ft.Icon(ft.icons.VISIBILITY,
+                                color=ft.Colors.BLUE_600, size=20),
+                        ft.Text("Click to view", size=10,
+                                color=ft.Colors.BLUE_600)
                     ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                
+
                 # Matched keywords
                 ft.Container(
                     content=ft.Column([
-                        ft.Text("Matched Keywords:", size=12, weight=ft.FontWeight.BOLD),
+                        ft.Text("Matched Keywords:", size=12,
+                                weight=ft.FontWeight.BOLD),
                         ft.Row([
                             ft.Container(
                                 content=ft.Text(
-                                    f"{kw[0]} ({kw[1]})" if isinstance(kw, tuple) else str(kw),
+                                    f"{kw[0]} ({kw[1]})" if isinstance(
+                                        kw, tuple) else str(kw),
                                     size=10, color=ft.Colors.WHITE
                                 ),
                                 bgcolor=ft.Colors.ORANGE_600,
-                                padding=ft.padding.symmetric(horizontal=6, vertical=2),
+                                padding=ft.padding.symmetric(
+                                    horizontal=6, vertical=2),
                                 border_radius=10,
                                 margin=ft.margin.all(1)
                             ) for kw in (result.matched_keywords[:5] if result.matched_keywords else [])
@@ -357,32 +399,32 @@ class UIHandlers:
             ink=True,  # Add ripple effect
             on_click=on_card_click,  # Add click handler
         )
-        
+
         return result_card
 
     def show_cv_summary(self, cv_result, result_index):
         """Show CV summary dialog when result is clicked"""
         from utils.cv_extractor import CVExtractor
-        
+
         def close_summary_dialog(e):
             self.page.dialog.open = False
             self.page.update()
-        
+
         def show_full_cv(e):
             """Show full CV text in a dialog"""
             full_cv_dialog = ft.AlertDialog(
                 modal=True,
-                title=ft.Text(f"Full CV - {cv_result.applicant_profile.full_name}", 
-                             size=18, weight=ft.FontWeight.BOLD),
+                title=ft.Text(f"Full CV - {cv_result.applicant_profile.full_name}",
+                              size=18, weight=ft.FontWeight.BOLD),
                 content=ft.Container(
                     content=ft.Column([
-                        ft.Text(cv_result.cv_text, 
-                               size=12, 
-                               selectable=True,
-                               overflow=ft.TextOverflow.FADE),
-                    ], 
-                    scroll=ft.ScrollMode.AUTO,
-                    height=500),
+                        ft.Text(cv_result.cv_text,
+                                size=12,
+                                selectable=True,
+                                overflow=ft.TextOverflow.FADE),
+                    ],
+                        scroll=ft.ScrollMode.AUTO,
+                        height=500),
                     width=800,
                     height=500
                 ),
@@ -391,53 +433,59 @@ class UIHandlers:
                 ],
                 actions_alignment=ft.MainAxisAlignment.END,
             )
-            
+
             self.page.dialog = full_cv_dialog
             full_cv_dialog.open = True
             self.page.update()
-        
+
         # Extract CV summary using CVExtractor
         cv_summary = CVExtractor.extract_full_summary(cv_result.cv_text)
-        
+
         # Create summary dialog content
         summary_content = ft.Column([
             # Header with applicant info
             ft.Container(
                 content=ft.Column([
-                    ft.Text("CV Summary", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-                    ft.Text(f"Match Score: {cv_result.similarity_score:.3f}", 
-                           size=14, color=ft.Colors.WHITE70),
+                    ft.Text("CV Summary", size=20,
+                            weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
                 ]),
                 bgcolor=ft.Colors.BLUE_700,
                 padding=15,
                 border_radius=ft.BorderRadius(10, 10, 0, 0),
                 margin=ft.margin.only(bottom=10)
             ),
-            
+
             # Personal Information Section
             ft.Container(
                 content=ft.Column([
-                    ft.Text("Personal Information", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
+                    ft.Text("Personal Information", size=16,
+                            weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
                     ft.Divider(height=1, color=ft.Colors.BLUE_200),
                     ft.Row([
                         ft.Column([
                             ft.Text("Name:", weight=ft.FontWeight.BOLD, size=12),
-                            ft.Text(cv_result.applicant_profile.full_name, size=14),
+                            ft.Text(
+                                cv_result.applicant_profile.full_name, size=14),
                         ], expand=1),
                         ft.Column([
-                            ft.Text("Phone:", weight=ft.FontWeight.BOLD, size=12),
-                            ft.Text(cv_summary.phone or cv_result.applicant_profile.phone_number or "Not available", size=14),
+                            ft.Text(
+                                "Phone:", weight=ft.FontWeight.BOLD, size=12),
+                            ft.Text(
+                                cv_summary.phone or cv_result.applicant_profile.phone_number or "Not available", size=14),
                         ], expand=1),
                     ]),
                     ft.Row([
                         ft.Column([
-                            ft.Text("Address:", weight=ft.FontWeight.BOLD, size=12),
-                            ft.Text(cv_summary.address or cv_result.applicant_profile.address or "Not available", 
-                                   size=14, overflow=ft.TextOverflow.ELLIPSIS),
+                            ft.Text(
+                                "Address:", weight=ft.FontWeight.BOLD, size=12),
+                            ft.Text(cv_summary.address or cv_result.applicant_profile.address or "Not available",
+                                    size=14, overflow=ft.TextOverflow.ELLIPSIS),
                         ], expand=1),
                         ft.Column([
-                            ft.Text("Role Applied:", weight=ft.FontWeight.BOLD, size=12),
-                            ft.Text(cv_result.application_detail.application_role, size=14),
+                            ft.Text("Role Applied:",
+                                    weight=ft.FontWeight.BOLD, size=12),
+                            ft.Text(
+                                cv_result.application_detail.application_role, size=14),
                         ], expand=1),
                     ]),
                 ]),
@@ -446,36 +494,42 @@ class UIHandlers:
                 border_radius=10,
                 margin=ft.margin.only(bottom=10)
             ),
-            
+
             # Professional Summary Section
             ft.Container(
                 content=ft.Column([
-                    ft.Text("Professional Summary", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700),
+                    ft.Text("Professional Summary", size=16,
+                            weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700),
                     ft.Divider(height=1, color=ft.Colors.GREEN_200),
-                    ft.Text(cv_summary.summary or "No summary available", 
-                           size=14, overflow=ft.TextOverflow.FADE),
+                    ft.Text(cv_summary.summary or "No summary available",
+                            size=14, overflow=ft.TextOverflow.FADE),
                 ]),
                 bgcolor=ft.Colors.GREEN_50,
                 padding=15,
                 border_radius=10,
                 margin=ft.margin.only(bottom=10)
             ),
-            
+
             # Skills Section
             ft.Container(
                 content=ft.Column([
-                    ft.Text("Skills", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.PURPLE_700),
+                    ft.Text("Skills", size=16, weight=ft.FontWeight.BOLD,
+                            color=ft.Colors.PURPLE_700),
                     ft.Divider(height=1, color=ft.Colors.PURPLE_200),
                     ft.Column([
                         ft.Row([
                             ft.Container(
-                                content=ft.Text(skill, size=12, color=ft.Colors.WHITE),
+                                content=ft.Text(
+                                    skill, size=12, color=ft.Colors.WHITE),
                                 bgcolor=ft.Colors.PURPLE_600,
-                                padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                                padding=ft.padding.symmetric(
+                                    horizontal=8, vertical=4),
                                 border_radius=15,
                                 margin=ft.margin.all(2)
-                            ) for skill in cv_summary.skills[i:i+3]  # Group skills in rows of 3
-                        ]) for i in range(0, min(len(cv_summary.skills), 9), 3)  # Max 3 rows of 3 skills
+                                # Group skills in rows of 3
+                            ) for skill in cv_summary.skills[i:i+3]
+                            # Max 3 rows of 3 skills
+                        ]) for i in range(0, min(len(cv_summary.skills), 9), 3)
                     ] if cv_summary.skills else [ft.Text("No skills extracted", size=14, color=ft.Colors.GREY_600)]),
                 ]),
                 bgcolor=ft.Colors.PURPLE_50,
@@ -483,17 +537,18 @@ class UIHandlers:
                 border_radius=10,
                 margin=ft.margin.only(bottom=10)
             ),
-            
+
             # Experience Section
             ft.Container(
                 content=ft.Column([
-                    ft.Text("Work Experience", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_700),
+                    ft.Text("Work Experience", size=16,
+                            weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_700),
                     ft.Divider(height=1, color=ft.Colors.ORANGE_200),
                     ft.Column([
                         ft.Container(
                             content=ft.Column([
-                                ft.Text(f"{exp['start_date']} - {exp['end_date']}", 
-                                       size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_800),
+                                ft.Text(f"{exp['start_date']} - {exp['end_date']}",
+                                        size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_800),
                                 ft.Text(exp['position'], size=14),
                             ]),
                             bgcolor=ft.Colors.WHITE,
@@ -501,7 +556,8 @@ class UIHandlers:
                             border_radius=8,
                             border=ft.border.all(1, ft.Colors.ORANGE_200),
                             margin=ft.margin.only(bottom=5)
-                        ) for exp in cv_summary.experience[:3]  # Show max 3 experiences
+                            # Show max 3 experiences
+                        ) for exp in cv_summary.experience[:3]
                     ] if cv_summary.experience else [ft.Text("No experience extracted", size=14, color=ft.Colors.GREY_600)]),
                 ]),
                 bgcolor=ft.Colors.ORANGE_50,
@@ -509,16 +565,18 @@ class UIHandlers:
                 border_radius=10,
                 margin=ft.margin.only(bottom=10)
             ),
-            
+
             # Education Section
             ft.Container(
                 content=ft.Column([
-                    ft.Text("Education", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.CYAN_700),
+                    ft.Text("Education", size=16,
+                            weight=ft.FontWeight.BOLD, color=ft.Colors.CYAN_700),
                     ft.Divider(height=1, color=ft.Colors.CYAN_200),
                     ft.Column([
                         ft.Container(
                             content=ft.Column([
-                                ft.Text(edu['year'], size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.CYAN_800),
+                                ft.Text(
+                                    edu['year'], size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.CYAN_800),
                                 ft.Text(edu['degree'], size=14),
                             ]),
                             bgcolor=ft.Colors.WHITE,
@@ -534,23 +592,27 @@ class UIHandlers:
                 border_radius=10,
                 margin=ft.margin.only(bottom=15)
             ),
-            
+
             # Matched Keywords Section
             ft.Container(
                 content=ft.Column([
-                    ft.Text("Matched Keywords", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.RED_700),
+                    ft.Text("Matched Keywords", size=16,
+                            weight=ft.FontWeight.BOLD, color=ft.Colors.RED_700),
                     ft.Divider(height=1, color=ft.Colors.RED_200),
                     ft.Column([
                         ft.Row([
                             ft.Container(
-                                content=ft.Text(f"{keyword[0]} ({keyword[1]})" if isinstance(keyword, tuple) else str(keyword), 
-                                               size=12, color=ft.Colors.WHITE),
+                                content=ft.Text(f"{keyword[0]} ({keyword[1]})" if isinstance(keyword, tuple) else str(keyword),
+                                                size=12, color=ft.Colors.WHITE),
                                 bgcolor=ft.Colors.RED_600,
-                                padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                                padding=ft.padding.symmetric(
+                                    horizontal=8, vertical=4),
                                 border_radius=15,
                                 margin=ft.margin.all(2)
-                            ) for keyword in cv_result.matched_keywords[i:i+2]  # Group keywords in rows of 2
-                        ]) for i in range(0, min(len(cv_result.matched_keywords), 8), 2)  # Max 4 rows of 2 keywords
+                                # Group keywords in rows of 2
+                            ) for keyword in cv_result.matched_keywords[i:i+2]
+                            # Max 4 rows of 2 keywords
+                        ]) for i in range(0, min(len(cv_result.matched_keywords), 8), 2)
                     ] if cv_result.matched_keywords else [ft.Text("No keywords matched", size=14, color=ft.Colors.GREY_600)]),
                 ]),
                 bgcolor=ft.Colors.RED_50,
@@ -558,13 +620,13 @@ class UIHandlers:
                 border_radius=10,
             ),
         ], scroll=ft.ScrollMode.AUTO)
-        
+
         # Create summary dialog
         summary_dialog = ft.AlertDialog(
             modal=True,
             title=ft.Row([
-                ft.Text(f"CV Summary - {cv_result.applicant_profile.full_name}", 
-                       size=18, weight=ft.FontWeight.BOLD),
+                ft.Text(f"CV Summary - {cv_result.applicant_profile.full_name}",
+                        size=18, weight=ft.FontWeight.BOLD),
                 ft.IconButton(
                     icon=ft.icons.CLOSE,
                     on_click=close_summary_dialog,
@@ -581,13 +643,14 @@ class UIHandlers:
                     "View Full CV",
                     icon=ft.icons.DESCRIPTION,
                     on_click=show_full_cv,
-                    style=ft.ButtonStyle(bgcolor=ft.Colors.BLUE_600, color=ft.Colors.WHITE)
+                    style=ft.ButtonStyle(
+                        bgcolor=ft.Colors.BLUE_600, color=ft.Colors.WHITE)
                 ),
                 ft.TextButton("Close", on_click=close_summary_dialog)
             ],
             actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         )
-        
+
         self.page.dialog = summary_dialog
         summary_dialog.open = True
         self.page.update()

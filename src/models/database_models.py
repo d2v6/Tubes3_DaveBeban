@@ -1,6 +1,6 @@
-from dataclasses import dataclass
-from datetime import  date
-from typing import Optional, List
+from dataclasses import dataclass, field
+from datetime import date
+from typing import Optional, List, Tuple, Dict
 
 
 @dataclass
@@ -29,7 +29,6 @@ class ApplicationDetail:
     applicant_id: Optional[int] = None
     application_role: Optional[str] = None
     cv_path: Optional[str] = None
-    # Related data
     applicant_profile: Optional[ApplicantProfile] = None
 
 
@@ -37,11 +36,16 @@ class ApplicationDetail:
 class CVSearchResult:
     applicant_profile: ApplicantProfile
     application_detail: ApplicationDetail
-    match_count: int = 0
-    matched_keywords: List[str] = None
-    similarity_score: float = 0.0
+    matched_keywords: List[Tuple[str, int]] = field(default_factory=list)
     cv_text: str = ""
+    search_timing: Dict[str, float] = field(default_factory=dict)
 
-    def __post_init__(self):
-        if self.matched_keywords is None:
-            self.matched_keywords = []
+    @property
+    def total_matches(self) -> int:
+        """Get total number of matches across all keywords"""
+        return sum(count for _, count in self.matched_keywords)
+
+    @property
+    def number_of_matches(self) -> int:
+        """Alias for total_matches for backward compatibility"""
+        return self.total_matches
