@@ -1,5 +1,6 @@
 from src.database.connection import DatabaseConnection
 from src.utils.pdf_parser import PDFParser
+from src.utils.encryption import FieldEncryption
 from src.models.database_models import ApplicantProfile, ApplicationDetail, CVSearchResult
 from src.algorithms.string_matcher_unified import StringMatcher
 from src.algorithms.kmp_search import KMPSearch
@@ -25,6 +26,7 @@ class CVRepository:
         self.db = DatabaseConnection()
         self.pdf_parser = PDFParser()
         self.string_matcher = StringMatcher()
+        self.field_encryption = FieldEncryption()
 
         self.project_root = self._get_project_root()
         self.data_folder = os.path.join(self.project_root, "data")
@@ -316,13 +318,15 @@ class CVRepository:
                 cv_tasks = []
                 for row in results:
                     try:
+                        decrypted_row = self.field_encryption.decrypt_profile_data(row)
+                        
                         cv_tasks.append({
-                            'applicant_id': row['applicant_id'],
-                            'first_name': row['first_name'],
-                            'last_name': row['last_name'],
-                            'date_of_birth': row['date_of_birth'],
-                            'address': row['address'],
-                            'phone_number': row['phone_number'],
+                            'applicant_id': decrypted_row['applicant_id'],
+                            'first_name': decrypted_row['first_name'],
+                            'last_name': decrypted_row['last_name'],
+                            'date_of_birth': decrypted_row['date_of_birth'],
+                            'address': decrypted_row['address'],
+                            'phone_number': decrypted_row['phone_number'],
                             'detail_id': row['detail_id'],
                             'application_role': row['application_role'],
                             'cv_path': row['cv_path']

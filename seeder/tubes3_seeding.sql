@@ -9,11 +9,11 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 CREATE TABLE ApplicantProfile (
     applicant_id INT AUTO_INCREMENT PRIMARY KEY,
-    first_name VARCHAR(50),
-    last_name VARCHAR(50),
+    first_name TEXT,
+    last_name TEXT,
     date_of_birth DATE,
-    address VARCHAR(255),
-    phone_number VARCHAR(20)
+    address TEXT,
+    phone_number TEXT
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE ApplicationDetail (
