@@ -139,8 +139,8 @@ class CVRepository:
 
                         if exact_matches > 0:
                             matched_keywords.append((keyword, exact_matches))
-                            print(
-                                f"Exact match found for '{keyword}' in CV {i}: {exact_matches} occurrences")
+                            # print(
+                            #     f"Exact match found for '{keyword}' in CV {i}: {exact_matches} occurrences")
                         else:
                             fuzzy_start = time.time()
                             fuzzy_matches = self._find_fuzzy(
@@ -149,8 +149,8 @@ class CVRepository:
 
                             if fuzzy_matches:
                                 matched_keywords.extend(fuzzy_matches)
-                                print(
-                                    f"Fuzzy match found for '{keyword}' in CV {i}: {len(fuzzy_matches)} occurrences")
+                                # print(
+                                #     f"Fuzzy match found for '{keyword}' in CV {i}: {len(fuzzy_matches)} occurrences")
 
                     if matched_keywords:
                         cv_result.matched_keywords = matched_keywords
@@ -165,8 +165,8 @@ class CVRepository:
 
             top_results = search_results[:top_matches]
 
-            print(
-                f"Timing - Exact: {search_times['exact']:.3f}s, Fuzzy: {search_times['fuzzy']:.3f}s")
+            # print(
+            #     f"Timing - Exact: {search_times['exact']:.3f}s, Fuzzy: {search_times['fuzzy']:.3f}s")
 
             for result in top_results:
                 result.search_timing = search_times
@@ -220,6 +220,8 @@ class CVRepository:
 
             matched_keywords = [(word, count)
                                 for word, count in keyword_counts.items()]
+            # for value in matched_keywords:
+            #     print(f"Fuzzy match found: {value[0]} with count {value[1]}")
 
             return matched_keywords
 
