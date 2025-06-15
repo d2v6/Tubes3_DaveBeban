@@ -12,48 +12,27 @@ from .levenshtein_distance import LevenshteinDistance
 from typing import List, Dict
 
 class StringMatcher:
-    """
-    Unified interface for all string matching algorithms
-    
-    Provides backward compatibility and easy access to all algorithms
-    """
-    
     # KMP Methods
     @staticmethod
     def kmp_search(text: str, pattern: str) -> List[int]:
-        """Search using KMP algorithm"""
         return KMPSearch.search(text, pattern)
     
     # Boyer-Moore Methods
     @staticmethod
     def boyer_moore_search(text: str, pattern: str) -> List[int]:
-        """Search using Boyer-Moore algorithm"""
         return BoyerMooreSearch.search(text, pattern)
     
     # Aho-Corasick Methods
     @staticmethod
     def aho_corasick_search(text: str, patterns: List[str]) -> Dict[str, List[int]]:
-        """Search using Aho-Corasick algorithm"""
         return AhoCorasickSearch.search(text, patterns)
     
     @staticmethod
     def calculate_similarity(s1: str, s2: str) -> float:
-        """Calculate similarity percentage"""
         return LevenshteinDistance.calculate_similarity(s1, s2)
     
     @staticmethod
     def fuzzy_search(text: str, pattern: str, threshold: float = 80.0) -> List[tuple]:
-        """
-        Fuzzy search using Levenshtein distance
-        
-        Args:
-            text: Text to search in
-            pattern: Pattern to search for
-            threshold: Similarity threshold (0-100)
-            
-        Returns:
-            List of tuples (word, similarity_score, position)
-        """
         words = text.split()
         matches = []
         

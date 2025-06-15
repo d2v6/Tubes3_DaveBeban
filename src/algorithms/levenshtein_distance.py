@@ -1,23 +1,6 @@
 class LevenshteinDistance:
-    """
-    Levenshtein Distance Algorithm for String Similarity
-    
-    Calculates edit distance between two strings using dynamic programming
-    Useful for fuzzy string matching and similarity calculations
-    """
-    
     @staticmethod
     def calculate_distance(s1: str, s2: str) -> int:
-        """
-        Calculate Levenshtein distance between two strings
-        
-        Args:
-            s1: First string
-            s2: Second string
-            
-        Returns:
-            Integer representing the minimum edit distance
-        """
         if len(s1) < len(s2):
             return LevenshteinDistance.calculate_distance(s2, s1)
         
@@ -38,16 +21,6 @@ class LevenshteinDistance:
     
     @staticmethod
     def calculate_similarity(s1: str, s2: str) -> float:
-        """
-        Calculate similarity percentage using Levenshtein distance
-        
-        Args:
-            s1: First string
-            s2: Second string
-            
-        Returns:
-            Float representing similarity percentage (0-100)
-        """
         max_len = max(len(s1), len(s2))
         if max_len == 0:
             return 100.0
@@ -58,12 +31,6 @@ class LevenshteinDistance:
     
     @staticmethod
     def similarity_with_stats(s1: str, s2: str) -> dict:
-        """
-        Calculate similarity with detailed statistics
-        
-        Returns:
-            Dictionary with similarity metrics and performance data
-        """
         import time
         
         start_time = time.time()
@@ -83,16 +50,5 @@ class LevenshteinDistance:
     
     @staticmethod
     def is_similar(s1: str, s2: str, threshold: float = 80.0) -> bool:
-        """
-        Check if two strings are similar above a given threshold
-        
-        Args:
-            s1: First string
-            s2: Second string
-            threshold: Similarity threshold percentage (default 80%)
-            
-        Returns:
-            Boolean indicating if strings are similar above threshold
-        """
         similarity = LevenshteinDistance.calculate_similarity(s1, s2)
         return similarity >= threshold
