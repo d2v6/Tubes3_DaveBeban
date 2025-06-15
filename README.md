@@ -21,6 +21,24 @@ Algoritma pencarian string yang melakukan pencarian dari kanan ke kiri pada patt
 2. Searching: Mulai dari ujung kanan pattern, jika tidak cocok gunakan bad character rule
 3. Efisien untuk pattern panjang dan alphabet besar
 
+### Aho-Corasick
+Algoritma pencocokan banyak pola (multi-pattern matching) berbasis struktur automaton (trie + failure link), ideal untuk mendeteksi banyak kata kunci sekaligus dalam satu kali pemindaian teks.
+
+Kompleksitas waktu: O(n + m + z),
+dengan:
+1. n = panjang teks,
+2. m = total panjang semua pattern,
+3. z = total hasil kemunculan.
+
+Cara Kerja:
+Build Trie: Bangun trie dari semua pattern/kata kunci.
+Build Failure Link: Tambahkan failure link ke simpul yang paling panjang yang dapat menjadi fallback saat mismatch.
+Searching: Pindai teks satu arah, transisi antar simpul, dan hasilkan kemunculan semua pattern yang cocok.
+
+Kelebihan:
+Dapat mencocokkan banyak kata kunci sekaligus.
+Cocok untuk aplikasi skala besar seperti filtering konten, pencarian cepat, dan deteksi entitas.
+
 ## 🛠️ Requirements
 
 ### Sistem Requirements
@@ -62,29 +80,22 @@ source venv/Scripts/activate
 pip install -r requirements.txt
 ```
 
-### 3. Setup Database MySQL
-```sql
--- Buat database baru
-CREATE DATABASE cv_ats;
+### 3. Generate Master Key
+```bash
+python keygen.py
 ```
+
+### 4. Setup env sesuai example
+
+### 5. Setup Database MySQL
 
 ```bash
 python setup_database.py
 ```
 
 ```bash
-python seeder/seeder.py
-```
-
-### 4. Konfigurasi Environment
-Buat file `.env` dengan konfigurasi berikut:
-```env
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=your_password
-DB_NAME=cv_ats
-ENCRYPTION_MASTER_KEY=CV_ATS_SECURE_MASTER_KEY_2024_STIMA_ITB
-ENCRYPTION_ENABLED=true
+cd seeder/
+python seeder.py
 ```
 
 ## 🔧 Compile/Build dan Menjalankan Program
@@ -98,32 +109,26 @@ python src/main.py
 ### Method 2: Menggunakan Flet
 ```bash
 # Menjalankan dengan Flet (Recommended)
-flet run
+flet run src/main.py
 ```
 
 ## 📖 Langkah Penggunaan
 
-### 1. Upload CV
-- Jalankan aplikasi
-- Klik "Select PDF Files" untuk memilih file CV
-- Sistem akan mengekstrak teks dan menyimpan ke database
-
-### 2. Pencarian CV
+### 1. Pencarian CV
 - Masukkan kata kunci pencarian (dipisah koma)
 - Pilih algoritma: KMP atau Boyer-Moore
 - Atur jumlah hasil maksimal yang ditampilkan
 - Klik "Start Search"
 
-### 3. Lihat Hasil
+### 2. Lihat Hasil
 - CV ditampilkan berdasarkan skor kemiripan
 - Klik CV untuk melihat detail lengkap
 - Informasi waktu pencarian ditampilkan
 
-## 🔐 Fitur Bonus: Enkripsi Data
-Sistem mengimplementasikan enkripsi kustom untuk data sensitif profil pelamar:
-- Custom AES-like block cipher
-- PBKDF2-like key derivation
-- Transparent encryption/decryption
+## Fitur Bonus: 
+1. Enkripsi Data
+2. Algoritma Aho-Corasick
+3. Video: https://youtu.be/pEbHx77tQPo
 
 
 ## 📁 Struktur Project
@@ -136,7 +141,7 @@ Tubes3_DaveBeban/
 │   ├── ui/               # User interface components
 │   ├── utils/            # Utilities dan enkripsi
 │   └── main.py           # Entry point aplikasi
-├── data/cvs/             # Storage CV files
+├── data/             # Storage CV files
 ├── requirements.txt      # Dependencies
 └── .env                 # Konfigurasi environment
 ```
@@ -147,7 +152,3 @@ Tubes3_DaveBeban/
 | 13523003 | Dave Daniell Yanni            |
 | 13523008 | Varel Tiara                   |
 | 13523097 | Shanice Feodora Tjahjono      |
-
----
-
-**Catatan**: Project ini dibuat untuk keperluan akademik Tugas Besar 3 mata kuliah Strategi Algoritma di Institut
