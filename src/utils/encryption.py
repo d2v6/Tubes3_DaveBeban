@@ -68,8 +68,6 @@ class Encryption:
             if not plaintext:
                 return "", b""
 
-            print(f"      Core encryption: '{plaintext}' -> ", end="")
-
             # Generate salt if not provided
             if salt is None:
                 salt = self._generate_salt()
@@ -166,27 +164,24 @@ class FieldEncryption:
         self.encryptor = Encryption()
 
         self.encrypted_fields = {
-            'first_name', 'last_name', 'date_of_birth', 'address',
+            'first_name', 'last_name', 'address',
             'phone_number'
         }
 
     def encrypt_profile_data(self, profile_data: Dict[str, Any]) -> Dict[str, Any]:
         encrypted_data = profile_data.copy()
-        print(f"🔒 FieldEncryption: Starting encryption for {len(self.encrypted_fields)} fields")
 
         for field in self.encrypted_fields:
             if field in encrypted_data and encrypted_data[field] is not None:
                 original_value = str(encrypted_data[field])
-                print(f"   Encrypting {field}: '{original_value}' -> ", end="")
-                
-                encrypted_value, _ = self.encryptor.encrypt_data(original_value)
+
+                encrypted_value, _ = self.encryptor.encrypt_data(
+                    original_value)
                 encrypted_data[field] = encrypted_value
-                
-                print(f"'{encrypted_value[:30]}...'")
+
             else:
                 print(f"   Skipping {field}: not present or None")
 
-        print(f"✅ FieldEncryption: Completed encryption")
         return encrypted_data
 
     def decrypt_profile_data(self, encrypted_data: Dict[str, Any]) -> Dict[str, Any]:

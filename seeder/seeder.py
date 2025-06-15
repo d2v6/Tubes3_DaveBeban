@@ -1,11 +1,13 @@
-from src.database.connection import DatabaseConnection
 import os
 import sys
+import re
 from mysql.connector import Error
 from dotenv import load_dotenv
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from src.database.connection import DatabaseConnection
+from src.utils.encryption import FieldEncryption
 
 load_dotenv()
 
@@ -15,6 +17,7 @@ class SQLSeeder:
 
     def __init__(self):
         self.db = DatabaseConnection()
+        self.field_encryption = FieldEncryption()
         base_dir = os.path.dirname(os.path.abspath(__file__))
         self.sql_file_path = os.path.join(base_dir, "tubes3_seeding.sql")
 
@@ -91,6 +94,11 @@ class SQLSeeder:
 
     def _execute_command(self, command):
         """Execute a single SQL command"""
+        # Check if this is an ApplicantProfile INSERT command
+        print(f"Executing command: {command[:50]}...")  # Log first 50 chars
+        if re.search(r'INSERT\s+INTO\s+ApplicantProfile', command, re.IGNORECASE):
+            command = self._process_applicant_profile_insert(command)
+
         if command.upper().startswith('SELECT'):
             return self.db.execute_query(command)
         else:
@@ -140,28 +148,163 @@ class SQLSeeder:
                 "SELECT COUNT(*) as count FROM ApplicantProfile")
             if profile_count:
                 print(
+                    # Check ApplicationDetail table
                     f"   ApplicantProfile: {profile_count[0]['count']} records")
-
-            # Check ApplicationDetail table
             detail_count = self.db.execute_query(
                 "SELECT COUNT(*) as count FROM ApplicationDetail")
             if detail_count:
                 print(
                     f"   ApplicationDetail: {detail_count[0]['count']} records")
 
-            # Check sample data
+            # Check sample encrypted data
             sample_profiles = self.db.execute_query(
-                "SELECT first_name, last_name FROM ApplicantProfile LIMIT 5")
+                "SELECT applicant_id, first_name, last_name, date_of_birth FROM ApplicantProfile LIMIT 5")
             if sample_profiles:
-                print("   Sample profiles:")
+                print("   Sample encrypted profiles:")
                 for profile in sample_profiles:
-                    print(
-                        f"      • {profile['first_name']} {profile['last_name']}")
+                    # Decrypt only the encrypted fields for verification display
+                    try:
+                        # Use the existing decrypt method on individual fields
+                        decrypted_first_name = self.field_encryption.encryptor.decrypt_data(
+                            profile['first_name'])
+                        decrypted_last_name = self.field_encryption.encryptor.decrypt_data(
+                            profile['last_name'])
+                        print(
+                            f"      • ID: {profile['applicant_id']} | {decrypted_first_name} {decrypted_last_name} | DOB: {profile['date_of_birth']} (selective encryption)")
+                    except Exception as e:
+                        print(
+                            f"      • Error decrypting profile {profile['applicant_id']}: {e}")
 
             print("✅ Data verification completed!")
 
         except Exception as e:
             print(f"Verification error: {e}")
+
+    def _process_applicant_profile_insert(self, command):
+        """Process ApplicantProfile INSERT command and encrypt sensitive fields"""
+        try:
+            print("🔒 Processing ApplicantProfile data with encryption...")
+
+            # Extract the VALUES portion
+            values_match = re.search(
+                r'VALUES\s*(.+)', command, re.DOTALL | re.IGNORECASE)
+            if not values_match:
+                return command
+
+            values_part = values_match.group(1)
+
+            # Find all value tuples using regex
+            # This matches (value1, 'value2', value3, ...) patterns
+            tuple_pattern = r'\(([^)]*(?:\([^)]*\)[^)]*)*)\)'
+            tuples = re.findall(tuple_pattern, values_part)
+
+            encrypted_tuples = []
+
+            for i, tuple_content in enumerate(tuples):
+                # Parse individual values from the tuple
+                # Split by comma but respect quotes
+                # Expected: id, first_name, last_name, date_of_birth, address, phone_number
+                values = self._parse_tuple_values(tuple_content)
+                if len(values) >= 6:
+                    # Create profile data dict
+                    profile_data = {
+                        'applicant_id': values[0].strip().strip("'\""),
+                        'first_name': values[1].strip().strip("'\""),
+                        'last_name': values[2].strip().strip("'\""),
+                        'date_of_birth': values[3].strip().strip("'\""),
+                        'address': values[4].strip().strip("'\""),
+                        'phone_number': values[5].strip().strip("'\"")
+                    }
+
+                    print(
+                        # Encrypt only the sensitive fields using the existing encryption method
+                        f"   Processing record {i+1}: {profile_data['first_name']} {profile_data['last_name']}")
+                    # First, encrypt the profile data
+                    encrypted_profile = self.field_encryption.encrypt_profile_data(
+                        profile_data)
+
+                    # Then selectively keep non-encrypted fields
+                    encrypted_data = {
+                        # Keep as-is for foreign key integrity
+                        'applicant_id': profile_data['applicant_id'],
+                        # Encrypted
+                        'first_name': encrypted_profile['first_name'],
+                        # Encrypted
+                        'last_name': encrypted_profile['last_name'],
+                        # Keep as-is for DATE type
+                        'date_of_birth': profile_data['date_of_birth'],
+                        # Encrypted
+                        'address': encrypted_profile['address'],
+                        # Encrypted
+                        'phone_number': encrypted_profile['phone_number']
+                    }
+
+                    # Reconstruct the tuple with encrypted values
+                    encrypted_tuple = (
+                        f"('{encrypted_data['applicant_id']}', "
+                        f"'{encrypted_data['first_name']}', "
+                        f"'{encrypted_data['last_name']}', "
+                        f"'{encrypted_data['date_of_birth']}', "
+                        f"'{encrypted_data['address']}', "
+                        f"'{encrypted_data['phone_number']}')"
+                    )
+                    encrypted_tuples.append(encrypted_tuple)
+                else:
+                    print(
+                        f"   ⚠️  Skipping malformed tuple: {tuple_content}")
+                    encrypted_tuples.append(f"({tuple_content})")
+
+            # Reconstruct the command with encrypted data
+            base_command = command[:values_match.start(1)]
+            encrypted_command = base_command + \
+                ',\n'.join(encrypted_tuples) + ';'
+
+            print(
+                f"✅ Encrypted {len(encrypted_tuples)} ApplicantProfile records")
+            return encrypted_command
+
+        except Exception as e:
+            print(
+                f"❌ Error processing ApplicantProfile encryption: {e}")
+            return command
+
+    def _parse_tuple_values(self, tuple_content):
+        """Parse individual values from a tuple string, respecting quotes"""
+        values = []
+        current_value = ""
+        in_quotes = False
+        quote_char = None
+
+        i = 0
+        while i < len(tuple_content):
+            char = tuple_content[i]
+
+            if not in_quotes and char in ["'", '"']:
+                in_quotes = True
+                quote_char = char
+                current_value += char
+            elif in_quotes and char == quote_char:
+                # Check if it's an escaped quote
+                if i + 1 < len(tuple_content) and tuple_content[i + 1] == quote_char:
+                    current_value += char + char
+                    i += 1  # Skip the next quote
+                else:
+                    in_quotes = False
+                    quote_char = None
+                    current_value += char
+            elif not in_quotes and char == ',':
+                values.append(current_value.strip())
+                current_value = ""
+            else:
+                current_value += char
+
+            i += 1
+
+        # Add the last value
+        if current_value.strip():
+            values.append(current_value.strip())
+
+        return values
 
 
 def main():
