@@ -1,27 +1,9 @@
 from typing import List
 
 class KMPSearch:
-    """
-    Knuth-Morris-Pratt (KMP) String Matching Algorithm
-    
-    Efficient single-pattern string matching with O(n+m) time complexity
-    Uses failure function to avoid redundant comparisons
-    """
-    
     @staticmethod
     def search(text: str, pattern: str) -> List[int]:
-        """
-        Search for pattern in text using KMP algorithm
-        
-        Args:
-            text: Text to search in
-            pattern: Pattern to search for
-            
-        Returns:
-            List of starting positions where pattern is found
-        """
         def compute_lps(pattern):
-            """Compute Longest Proper Prefix which is also Suffix (LPS) array"""
             lps = [0] * len(pattern)
             length = 0
             i = 1
@@ -67,12 +49,6 @@ class KMPSearch:
     
     @staticmethod
     def search_with_stats(text: str, pattern: str) -> dict:
-        """
-        KMP search with performance statistics
-        
-        Returns:
-            Dictionary with matches and performance metrics
-        """
         import time
         
         start_time = time.time()
